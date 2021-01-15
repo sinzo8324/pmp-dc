@@ -1,21 +1,23 @@
 /*
  * SPDX-License-Identifier: UNLICENSED
  */
-pragma solidity ^0.5.6;
+pragma solidity ^0.6.12;
 
-import 'openzeppelin-solidity/contracts/ownership/Ownable.sol';
+import './DataStorage.sol';
+import 'openzeppelin-solidity/contracts/access/AccessControl.sol';
+import 'openzeppelin-solidity/contracts/utils/Pausable.sol';
 import 'openzeppelin-solidity/contracts/token/ERC20/IERC20.sol';
 import 'openzeppelin-solidity/contracts/math/SafeMath.sol';
-import './DataStorage.sol';
 
-contract Erc20Logic is Ownable, IERC20 {
+
+contract Erc20Logic is AccessControl, Pausable, IERC20 {
     using SafeMath for uint256;
-
+    bytes32 public constant TYPE_COMPLIANCE = keccak256('TYPE_COMPLIANCE');
+    bytes32 public constant TYPE_MINTER = keccak256('TYPE_MINTER');
+    bytes32 public constant TYPE_BURNER = keccak256('TYPE_BURNER');
+    bytes32 public constant TYPE_OPERATOR = keccak256('TYPE_OPERATOR');
     address[] public dataStorages;
-
-    function setTokenDetails(string calldata _name, string calldata _symbol, uint8 _decimals) external onlyOwner {
-        DataStorage(dataStorages[0]).updateTokenDetails(_name, _symbol, _decimals);
-    }
+    bool public initialized = false;
 
     /**
      * @dev Returns the name of the token.
@@ -52,14 +54,14 @@ contract Erc20Logic is Ownable, IERC20 {
     /**
      * @dev See {IERC20-totalSupply}.
      */
-    function totalSupply() public view returns (uint256) {
+    function totalSupply() public view override returns (uint256) {
         return DataStorage(dataStorages[0]).getTotalSupply();
     }
 
     /**
      * @dev See {IERC20-balanceOf}.
      */
-    function balanceOf(address account) public view returns (uint256) {
+    function balanceOf(address account) public view override returns (uint256) {
         return DataStorage(dataStorages[0]).getBalance(account);
     }
 
@@ -71,7 +73,7 @@ contract Erc20Logic is Ownable, IERC20 {
      * - `recipient` cannot be the zero address.
      * - the caller must have a balance of at least `amount`.
      */
-    function transfer(address recipient, uint256 amount) public returns (bool) {
+    function transfer(address recipient, uint256 amount) public override returns (bool) {
         _transfer(_msgSender(), recipient, amount);
         return true;
     }
@@ -79,7 +81,7 @@ contract Erc20Logic is Ownable, IERC20 {
     /**
      * @dev See {IERC20-allowance}.
      */
-    function allowance(address owner, address spender) public view returns (uint256) {
+    function allowance(address owner, address spender) public view override returns (uint256) {
         return DataStorage(dataStorages[0]).getAllowance(owner, spender);
     }
 
@@ -90,7 +92,7 @@ contract Erc20Logic is Ownable, IERC20 {
      *
      * - `spender` cannot be the zero address.
      */
-    function approve(address spender, uint256 amount) public returns (bool) {
+    function approve(address spender, uint256 amount) public override returns (bool) {
         _approve(_msgSender(), spender, amount);
         return true;
     }
@@ -107,7 +109,7 @@ contract Erc20Logic is Ownable, IERC20 {
      * - the caller must have allowance for ``sender``'s tokens of at least
      * `amount`.
      */
-    function transferFrom(address sender, address recipient, uint256 amount) public returns (bool) {
+    function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
         _transfer(sender, recipient, amount);
         uint256 allowances = DataStorage(dataStorages[0]).getAllowance(sender, _msgSender());
         _approve(sender, _msgSender(), allowances.sub(amount, "ERC20: transfer amount exceeds allowance"));
@@ -152,14 +154,64 @@ contract Erc20Logic is Ownable, IERC20 {
         return true;
     }
 
-    function issue(address _tokenHolder, uint256 _value) external onlyOwner {
+    function issue(address _tokenHolder, uint256 _value) external {
+        require(hasRole(TYPE_MINTER, _msgSender()), 'Caller is not the Minter');
         require(_value != 0,  "Can not mint zero amount");
         _mint(_tokenHolder, _value);
     }
 
-    function redeem(address _tokenHolder, uint256 _value) external onlyOwner {
+    function redeem(address _tokenHolder, uint256 _value) external {
+        require(hasRole(TYPE_BURNER, _msgSender()), 'Caller is not the Burner');
         require(_value != 0,  "Can not redeem zero amount");
         _burn(_tokenHolder, _value);
+    }
+
+    function pause() external {
+        require(hasRole(TYPE_OPERATOR, _msgSender()), 'Caller is not the Operator');
+        _pause();
+    }
+
+    function unpause() external {
+        require(hasRole(TYPE_OPERATOR, _msgSender()), 'Caller is not the Operator');
+        _unpause();
+    }
+
+    // EIP - 2612
+    function nonces(address account) external view returns (uint256) {
+        return DataStorage(dataStorages[0]).getNonce(account);
+    }
+
+    function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external {
+        require(deadline >= block.timestamp, 'Erc20Logic: EXPIRED');
+
+        uint256 chainId;
+        // keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
+        bytes32 permitTypeHash = 0x6e71edae12b1b97f4d1f60370fef10105fa2faae0126114a169c64845d6126c9;
+
+        assembly { chainId := chainid() }
+
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                keccak256('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'),
+                keccak256(bytes(DataStorage(dataStorages[0]).getName())),
+                keccak256(bytes('2')),
+                chainId,
+                address(this)
+            )
+        );
+        uint256 nonce = DataStorage(dataStorages[0]).getNonce(owner);
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                '\x19\x01',
+                domainSeparator,
+                keccak256(abi.encode(permitTypeHash, owner, spender, value, nonce, deadline))
+            )
+        );
+
+        address recoveredAddress = ecrecover(digest, v, r, s);
+        require(recoveredAddress != address(0) && recoveredAddress == owner, 'Erc20Logic: INVALID_SIGNATURE');
+        DataStorage(dataStorages[0]).increaseNonce(owner);
+        _approve(owner, spender, value);
     }
 
     /**
@@ -278,5 +330,10 @@ contract Erc20Logic is Ownable, IERC20 {
      *
      * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
      */
-    function _beforeTokenTransfer(address from, address to, uint256 amount) internal { }
+    function _beforeTokenTransfer(address from, address to, uint256 amount) internal view {
+        require(!paused(), 'Erc20Logic: token transfer while paused');
+        from;
+        to;
+        amount;
+    }
 }

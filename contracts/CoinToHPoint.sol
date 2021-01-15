@@ -1,9 +1,9 @@
 /*
  * SPDX-License-Identifier: UNLICENSED
  */
-pragma solidity ^0.5.6;
+pragma solidity ^0.6.12;
 
-import 'openzeppelin-solidity/contracts/ownership/Ownable.sol';
+import 'openzeppelin-solidity/contracts/access/Ownable.sol';
 import 'openzeppelin-solidity/contracts/token/ERC20/IERC20.sol';
 import './RequestListLib.sol';
 

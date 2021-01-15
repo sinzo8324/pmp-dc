@@ -1,9 +1,9 @@
 /*
  * SPDX-License-Identifier: UNLICENSED
  */
-pragma solidity ^0.5.6;
+pragma solidity ^0.6.12;
 
-import 'openzeppelin-solidity/contracts/ownership/Ownable.sol';
+import 'openzeppelin-solidity/contracts/access/Ownable.sol';
 
 contract DataStorage is Ownable {
     address logicContract;
@@ -15,6 +15,8 @@ contract DataStorage is Ownable {
     mapping (address => uint256) private _balances;
 
     mapping (address => mapping (address => uint256)) private _allowances;
+
+    mapping(address => uint256) public nonces;
 
     function setLogicContract(address _addr) public onlyOwner {
         logicContract = _addr;
@@ -30,6 +32,10 @@ contract DataStorage is Ownable {
 
     function updateTotalSupply(uint256 _totalSupply) external onlyOwner {
         totalSupply = _totalSupply;
+    }
+
+    function increaseNonce(address _account) external onlyOwner {
+        nonces[_account] = nonces[_account] + 1;
     }
 
     function updateTokenDetails(string calldata _name, string calldata _symbol, uint8 _decimals) external onlyOwner {
@@ -64,5 +70,9 @@ contract DataStorage is Ownable {
 
     function getAllowance(address _owner, address _spender) external view returns (uint256) {
         return _allowances[_owner][_spender];
+    }
+
+    function getNonce(address _account) external view returns (uint256) {
+        return nonces[_account];
     }
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.5.6;
+pragma solidity ^0.6.12;
 
 library RequestListLib {
     bytes32 constant HEAD = bytes32(0);

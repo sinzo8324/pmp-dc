@@ -4,7 +4,6 @@ require('chai').should();
 const Proxy = artifacts.require('Proxy');
 const Erc20Logic = artifacts.require('Erc20Logic');
 const DataStorage = artifacts.require('DataStorage');
-const IErc20ProxyI = artifacts.require('IErc20ProxyI');
 const CoinToHPoint = artifacts.require('CoinToHPoint');
 const RequestListLib = artifacts.require('RequestListLib');
 require("chai")
@@ -19,13 +18,14 @@ contract('Coin', accounts => {
     await CoinToHPoint.link('RequestListLib', this.requestListLib.address);
     this.coinToHPoint = await CoinToHPoint.new();
 
-    await this.dataStorage.updateTokenDetails('HanwhaCoin', 'WON', '0');
+    await this.dataStorage.updateTokenDetails('Digital Currency', 'WON', '0');
     await this.dataStorage.transferOwnership(this.erc20Proxy.address);
     await this.erc20Proxy.addDataStorage(this.dataStorage.address);
     await this.erc20Proxy.updateLogicContract(this.erc20Logic.address);
     await this.coinToHPoint.setCoin(this.erc20Proxy.address);
+    await this.erc20Proxy.setInitialize(accounts[0], accounts[0], accounts[0], accounts[0]);
 
-    this.erc20Token = await IErc20ProxyI.at(this.erc20Proxy.address);
+    this.erc20Token = await Erc20Logic.at(this.erc20Proxy.address);
     });
 
   describe('RequestHPointKlaytn function', async () => {
