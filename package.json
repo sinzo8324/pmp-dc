@@ -13,12 +13,8 @@
   "license": "ISC",
   "dependencies": {
     "@openzeppelin/test-helpers": "^0.5.5",
-    "caver-js": "^1.5.5",
-    "dotenv": "^8.2.0",
-    "dotenv-expand": "^5.1.0",
     "eth-gas-reporter": "^0.2.17",
     "openzeppelin-solidity": "^3.3.0",
-    "solidity-coverage": "^0.7.5",
-    "truffle-hdwallet-provider": "^1.0.17"
+    "solidity-coverage": "^0.7.5"
   }
 }
