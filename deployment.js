@@ -16,24 +16,6 @@ async function deploy(contractName, web3, address) {
     }
 }
 
-async function deployWithLibrary(libName, contractName, web3, address) {
-    try {
-        const library = await deploy(libName, web3, address);
-
-        const source = fs.readFileSync(path.join(__dirname, './build/contracts/'+contractName+'.json'));
-        const contract = JSON.parse(source);
-        const contractToDeploy = new web3.eth.Contract(contract.abi);
-        const linkedByteCode = contract.bytecode.split('__' + libName + '________________________').join(library._address.replace('0x', ''))
-        const nonce = await web3.eth.getTransactionCount(address);
-        const gas = await contractToDeploy.deploy({data: linkedByteCode}).estimateGas({from: address});
-        const result = await contractToDeploy.deploy({data: linkedByteCode}).send({from: address, gas: gas, nonce: nonce});
-        return new web3.eth.Contract(contract.abi, result.options.address);
-    } catch (err) {
-        // Todo add logger
-        console.log(err);
-    }
-}
-
 function argvParser(processArgv){
     let obj = {};
     if(processArgv.length !== 4){
@@ -55,7 +37,7 @@ async function main() {
         const proxy = await deploy('Proxy', web3, account.address);
         const erc20Logic = await deploy('Erc20Logic', web3, account.address);
         const dataStorage = await deploy('DataStorage', web3, account.address);
-        const coinToHPoint = await deployWithLibrary('RequestListLib', 'CoinToHPoint', web3, account.address);
+        const coinToHPoint = await deploy('CoinToHPoint', web3, account.address);
 
         const nonce = await web3.eth.getTransactionCount(account.address);
 

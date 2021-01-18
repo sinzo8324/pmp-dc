@@ -8,13 +8,13 @@ library RequestListLib {
         uint256 totalLength;
     }
 
-    function push(RequestIDList storage self, bytes32 reqID) public {
+    function push(RequestIDList storage self, bytes32 reqID) internal {
         bytes32 lastId = getLastId(self);
         self.reqIDList[lastId] = reqID;
         self.totalLength++;
     }
 
-    function getLastId(RequestIDList storage self) public view returns(bytes32) {
+    function getLastId(RequestIDList storage self) internal view returns(bytes32) {
         uint256 len = self.totalLength;
         bytes32 current = HEAD;
         for( uint256 i = 0; i < len; i++ ) {
@@ -23,23 +23,23 @@ library RequestListLib {
         return current;
     }
 
-    function getLength(RequestIDList storage self) public view returns(uint256) {
+    function getLength(RequestIDList storage self) internal view returns(uint256) {
         return self.totalLength;
     }
 
-    function getNext(RequestIDList storage self, bytes32 reqID) public view returns(bytes32) {
+    function getNext(RequestIDList storage self, bytes32 reqID) internal view returns(bytes32) {
         return self.reqIDList[reqID];
     }
 
-    function getHead(RequestIDList storage self) public view returns(bytes32) {
+    function getHead(RequestIDList storage self) internal view returns(bytes32) {
         return self.reqIDList[HEAD];
     }
 
-    function updateHead(RequestIDList storage self, bytes32 reqID) public {
+    function updateHead(RequestIDList storage self, bytes32 reqID) internal {
         self.reqIDList[HEAD] = reqID;
     }
 
-    function deleteReqID(RequestIDList storage self, bytes32 reqID) public {
+    function deleteReqID(RequestIDList storage self, bytes32 reqID) internal {
         require(self.reqIDList[reqID] != 0, 'Cannot delete empty data');
         delete self.reqIDList[reqID];
         self.totalLength--;

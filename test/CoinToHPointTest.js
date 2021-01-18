@@ -9,13 +9,11 @@ const RequestListLib = artifacts.require('RequestListLib');
 require("chai")
   .should();
 
-contract('Coin', accounts => {
+contract('CoinToHPoint', accounts => {
   before(async () => {
     this.erc20Proxy = await Proxy.new();
     this.erc20Logic = await Erc20Logic.new();
     this.dataStorage = await DataStorage.new();
-    this.requestListLib = await RequestListLib.new();
-    await CoinToHPoint.link('RequestListLib', this.requestListLib.address);
     this.coinToHPoint = await CoinToHPoint.new();
 
     await this.dataStorage.updateTokenDetails('Digital Currency', 'WON', '0');
