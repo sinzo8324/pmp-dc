@@ -37,7 +37,7 @@ async function main() {
         const proxy = await deploy('Proxy', web3, account.address);
         const erc20Logic = await deploy('Erc20Logic', web3, account.address);
         const dataStorage = await deploy('DataStorage', web3, account.address);
-        const coinToHPoint = await deploy('CoinToHPoint', web3, account.address);
+        const dcVault = await deploy('DCVault', web3, account.address);
 
         const nonce = await web3.eth.getTransactionCount(account.address);
 
@@ -56,17 +56,17 @@ async function main() {
         gas = await proxy.methods.setInitialize(accountInfo.Compliance, accountInfo.Minter, accountInfo.Burner, accountInfo.Operator).estimateGas({from: account.address});
         await proxy.methods.setInitialize(accountInfo.Compliance, accountInfo.Minter, accountInfo.Burner, accountInfo.Operator).send({from: account.address, gas: gas});
 
-        gas = await coinToHPoint.methods.setCoin(proxy._address).estimateGas({from:account.address});
-        await coinToHPoint.methods.setCoin(proxy._address).send({from:account.address, gas: gas});
+        gas = await dcVault.methods.setDCContractAddress(proxy._address).estimateGas({from:account.address});
+        await dcVault.methods.setDCContractAddress(proxy._address).send({from:account.address, gas: gas});
 
-        gas = await coinToHPoint.methods.transferOwnership(accountInfo.Operator).estimateGas({from:account.address});
-        await coinToHPoint.methods.transferOwnership(accountInfo.Operator).send({from: account.address, gas: gas});
+        gas = await dcVault.methods.transferOwnership(accountInfo.Operator).estimateGas({from:account.address});
+        await dcVault.methods.transferOwnership(accountInfo.Operator).send({from: account.address, gas: gas});
 
         const deployResult = {
             Proxy: proxy._address,
             Erc20Logic: erc20Logic._address,
             DataStorage: dataStorage._address,
-            CoinToHPoint: coinToHPoint._address
+            DCVault: dcVault._address
         }
 
         const json = JSON.stringify(deployResult, null, 4);
