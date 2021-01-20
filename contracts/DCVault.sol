@@ -11,7 +11,7 @@ contract DCVault is Ownable {
     using RequestListLib for RequestListLib.RequestIDList;
 
     struct PendingReq {
-        address from;
+        address source;
         uint256 amount;
     }
 
@@ -19,8 +19,8 @@ contract DCVault is Ownable {
     RequestListLib.RequestIDList internal reqIDList;
     mapping (bytes32 => PendingReq) pendingList;
 
-    event DCLocked(bytes32 indexed requestID, address indexed requester, uint256 amount);
-    event Finished(bytes32 indexed requestID, address indexed requester, uint256 amount, bytes32 txHash);
+    event DCLocked(bytes32 indexed requestID, address indexed source, uint256 amount);
+    event Finished(bytes32 indexed requestID, address indexed source, uint256 amount, bytes32 txHash);
     event DCUnlocked(address indexed toAddress, uint256 amount);
     
     address dcContractAddress;
@@ -32,18 +32,18 @@ contract DCVault is Ownable {
     function getPendingList() external view returns (bytes32[] memory, address[] memory, uint256[] memory) {
         uint256 totalRequests = reqIDList.getLength();
         bytes32[] memory requestIDList = new bytes32[](totalRequests);
-        address[] memory fromAddrList = new address[](totalRequests);
+        address[] memory sourceAddrList = new address[](totalRequests);
         uint256[] memory amountList = new uint256[](totalRequests);
         bytes32 reqID = reqIDList.getHead();
 
         for(uint256 i = 0; i < totalRequests; i++) {
             requestIDList[i] = reqID;
-            fromAddrList[i] = pendingList[reqID].from;
+            sourceAddrList[i] = pendingList[reqID].source;
             amountList[i] = pendingList[reqID].amount;
             reqID = reqIDList.getNext(reqID);
         }
 
-        return (requestIDList, fromAddrList, amountList);
+        return (requestIDList, sourceAddrList, amountList);
     }
 
     function lockUpDC(address source, uint256 amount) public onlyOwner {
@@ -57,17 +57,19 @@ contract DCVault is Ownable {
     }
 
     function addTxHash(bytes32[] calldata requestIDList, bytes32[] calldata txHash) external onlyOwner {
+        require(requestIDList.length == txHash.length, 'length of input arrays should be same with each others');
+        require(requestIDList.length < reqIDList.getLength(), 'length of input array cannot be bigger than pending list on the contract');
         bytes32 currentReqId = reqIDList.getHead();
         bytes32 nextReqId = reqIDList.getNext(currentReqId);
         for(uint256 i = 0; i < requestIDList.length; i++){
             require(currentReqId == requestIDList[i], 'input should be matched with pending list on the contract');
-            address from = pendingList[currentReqId].from;
+            address source = pendingList[currentReqId].source;
             uint256 amount = pendingList[currentReqId].amount;
             delete pendingList[currentReqId];
             reqIDList.deleteReqID(currentReqId);
             currentReqId = nextReqId;
             nextReqId = reqIDList.getNext(currentReqId);
-            emit Finished(requestIDList[i], from, amount, txHash[i]);
+            emit Finished(requestIDList[i], source, amount, txHash[i]);
         }
         reqIDList.updateHead(currentReqId);
     }
