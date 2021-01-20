@@ -186,5 +186,24 @@ contract('DCVault', accounts => {
       assert.equal(result[2][2].toString(), '100');
       });
     });
+
+  describe('unlockDC function', async () => {
+    it('Only the contract owner can use the function', async () => {
+      await expectRevert(
+        this.dcVault.unlockDC(accounts[1], '100', { from: accounts[1] }),
+        'Ownable: caller is not the owner'
+        );
+      });
+    it('DCUnlocked event should be emitted', async () => {
+      const balance1 = await this.erc20Token.balanceOf(accounts[1]);
+      const receipt = await this.dcVault.unlockDC(accounts[1], '100', { from: accounts[0]});
+      expectEvent(receipt, 'DCUnlocked', {
+        toAddress: accounts[1],
+        amount: '100'
+        });
+      const balance2 = await this.erc20Token.balanceOf(accounts[1]);
+      assert.equal(balance1.addn(100).toString(), balance2.toString())
+      });
+    });
   });
   
