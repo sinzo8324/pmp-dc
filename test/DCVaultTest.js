@@ -1,5 +1,7 @@
-const { constants, expectEvent, expectRevert } = require('@openzeppelin/test-helpers');
-const keccak256 = require("web3-utils").soliditySha3;
+const { time, constants, expectEvent, expectRevert } = require('@openzeppelin/test-helpers');
+const { keccak256, hexlify, defaultAbiCoder, toUtf8Bytes, solidityPack} = require('ethers/utils');
+const { ecsign } = require('ethereumjs-util');
+const { soliditySha3 } = require("web3-utils");
 require('chai').should();
 
 const Proxy = artifacts.require('Proxy');
@@ -10,11 +12,54 @@ const DCVault = artifacts.require('DCVault');
 require("chai").should();
 
 function generateRequestID(contractAddress, account, amount, count) {
-  return keccak256(
+  return soliditySha3(
     contractAddress,
     account,
     amount,
     count
+  );
+}
+
+const testAccountPrivateKey = '0xFACDC25AB42FD449CA9CD505AAE912BBFF3F5B1880F70B3F63E1C733128032A7';
+const testAccount = web3.eth.accounts.privateKeyToAccount(testAccountPrivateKey).address;
+
+const PERMIT_TYPEHASH = keccak256(
+  toUtf8Bytes('Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)')
+);
+
+const TYPE_MINTER = soliditySha3('TYPE_MINTER');
+const TYPE_BURNER = soliditySha3('TYPE_BURNER');
+
+async function getDomainSeparator(name, tokenAddress) {
+  const chainId = '1';
+  return keccak256(
+    defaultAbiCoder.encode(
+      ['bytes32', 'bytes32', 'bytes32', 'uint256', 'address'],
+      [
+        keccak256(toUtf8Bytes('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)')),
+        keccak256(toUtf8Bytes(name)),
+        keccak256(toUtf8Bytes('1')),
+        chainId,
+        tokenAddress
+      ]
+    )
+  )
+}
+
+async function getApprovalDigest(name, contractAddr, ownerAddr, spenderAddr, amount, nonce, deadline) {
+  const DOMAIN_SEPARATOR = await getDomainSeparator(name, contractAddr);
+  return keccak256(
+    solidityPack(
+      ['bytes1', 'bytes1', 'bytes32', 'bytes32'],
+      ['0x19', '0x01', DOMAIN_SEPARATOR,
+        keccak256(
+          defaultAbiCoder.encode(
+            ['bytes32', 'address', 'address', 'uint256', 'uint256', 'uint256'],
+            [PERMIT_TYPEHASH, ownerAddr, spenderAddr, amount, nonce, deadline]
+          )
+        )
+      ]
+    )
   );
 }
 
@@ -31,7 +76,8 @@ contract('DCVault', accounts => {
     await this.erc20Proxy.updateLogicContract(this.erc20Logic.address);
     await this.dcVault.setDCContractAddress(this.erc20Proxy.address);
     await this.erc20Proxy.setInitialize(accounts[0], accounts[0], accounts[0], accounts[0]);
-
+    await this.erc20Proxy.grantRole(TYPE_MINTER, this.dcVault.address, { from: accounts[0] });
+    await this.erc20Proxy.grantRole(TYPE_BURNER, this.dcVault.address, { from: accounts[0] });
     this.erc20Token = await Erc20Logic.at(this.erc20Proxy.address);
     });
 
@@ -63,7 +109,7 @@ contract('DCVault', accounts => {
         'ERC20: transfer amount exceeds balance'
         );
       });
-    it('user account should approve for CoinToHPoint Contract', async () => {
+    it('user account should approve for DCVault Contract', async () => {
       for(let i = 1; i < 5; i++) {
         await this.erc20Token.issue(accounts[i], '10000', {from: accounts[0]});
       }
@@ -109,9 +155,9 @@ contract('DCVault', accounts => {
       let txHashList = [];
       for(let i = 0; i < 4; i++) {
         requestIDList.push(generateRequestID(this.dcVault.address, accounts[1 + i], '100', i));
-        txHashList.push(keccak256(i));
+        txHashList.push(soliditySha3(i));
       }
-      txHashList.push(keccak256(5));
+      txHashList.push(soliditySha3(5));
       await expectRevert(
         this.dcVault.addTxHash(requestIDList, txHashList, {from: accounts[0]}),
         'length of input arrays should be same with each others'
@@ -122,23 +168,11 @@ contract('DCVault', accounts => {
       let txHashList = [];
       for(let i = 0; i < 6; i++) {
         requestIDList.push(generateRequestID(this.dcVault.address, accounts[1 + i], '100', i));
-        txHashList.push(keccak256(i));
+        txHashList.push(soliditySha3(i));
       }
       await expectRevert(
         this.dcVault.addTxHash(requestIDList, txHashList, {from: accounts[0]}),
         'length of input array cannot be bigger than pending list on the contract'
-        );
-      });
-    it('the requestIDs order of input array should be match with the list on contract', async () => {
-      let requestIDList = [];
-      let txHashList = [];
-      for(let i = 1; i < 4; i++) {
-        requestIDList.push(generateRequestID(this.dcVault.address, accounts[1 + i], '100', i));
-        txHashList.push(keccak256(i));
-      }
-      await expectRevert(
-        this.dcVault.addTxHash(requestIDList, txHashList, {from: accounts[0]}),
-        'input should be matched with pending list on the contract'
         );
       });
     it('Finished event should be emitted', async () => {
@@ -146,7 +180,7 @@ contract('DCVault', accounts => {
       let txHashList = [];
       for(let i = 0; i < 3; i++) {
         requestIDList.push(generateRequestID(this.dcVault.address, accounts[1 + i], '100', i));
-        txHashList.push(keccak256(i));
+        txHashList.push(soliditySha3(i));
       }
       const receipt = await this.dcVault.addTxHash(requestIDList, txHashList, {from: accounts[0]});
       for(let i = 0;  i < requestIDList.length; i++){
@@ -203,6 +237,105 @@ contract('DCVault', accounts => {
         });
       const balance2 = await this.erc20Token.balanceOf(accounts[1]);
       assert.equal(balance1.addn(100).toString(), balance2.toString())
+      });
+    });
+
+  describe('mintDCnLockUp function', async () => {
+    it('Only the contract owner can use the function', async () => {
+      //permit
+      const nonce = await this.erc20Token.nonces(testAccount);
+      const current = await time.latest();
+      const deadline = current.addn(1000);
+      const digest = await getApprovalDigest(
+        'Digital Currency', this.erc20Token.address, testAccount, this.dcVault.address, '1000', nonce.toString(), deadline.toString()
+      );
+
+      const { v, r, s } = ecsign(Buffer.from(digest.slice(2), 'hex'), Buffer.from(testAccountPrivateKey.slice(2), 'hex'));
+      await expectRevert(
+        this.dcVault.mintDCnLockUp(testAccount, '1000', deadline, v, hexlify(r), hexlify(s), { from: accounts[1] }),
+        'Ownable: caller is not the owner'
+        );
+      });
+    it('check emitted events', async () => {
+      //permit
+      const nonce = await this.erc20Token.nonces(testAccount);
+      const current = await time.latest();
+      const deadline = current.addn(1000);
+      const digest = await getApprovalDigest(
+        'Digital Currency', this.erc20Token.address, testAccount, this.dcVault.address, '1000', nonce.toString(), deadline.toString()
+      );
+
+      const { v, r, s } = ecsign(Buffer.from(digest.slice(2), 'hex'), Buffer.from(testAccountPrivateKey.slice(2), 'hex'));
+      const receipt = await this.dcVault.mintDCnLockUp(testAccount, '1000', deadline, v, hexlify(r), hexlify(s));
+      expectEvent(receipt, 'DCLocked', {
+        requestID: generateRequestID(this.dcVault.address, testAccount, '1000', 6),
+        source: testAccount,
+        amount: '1000'
+        });
+      });
+    });
+
+  describe('unlockDCnBurn function', async () => {
+    it('Only the contract owner can use the function', async () => {
+      await expectRevert(
+        this.dcVault.unlockDCnBurn(accounts[1], '100', { from: accounts[1] }),
+        'Ownable: caller is not the owner'
+        );
+      });
+    it('check emitted events', async () => {
+      const balance1 = await this.erc20Token.balanceOf(this.dcVault.address);
+      const balance2 = await this.erc20Token.balanceOf(accounts[1]);
+      const receipt = await this.dcVault.unlockDCnBurn(accounts[1], '100');
+      expectEvent(receipt, 'DCUnlocked', {
+        toAddress: accounts[1],
+        amount: '100'
+        });
+      const balance3 = await this.erc20Token.balanceOf(this.dcVault.address);
+      const balance4 = await this.erc20Token.balanceOf(accounts[1]);
+      assert.equal(balance1.subn(100).toString(), balance3.toString())
+      assert.equal(balance2.toString(), balance4.toString());
+      });
+    });
+
+  describe('cancelRequest function', async () => {
+    it('Only the contract owner can use the function', async () => {
+      await expectRevert(
+        this.dcVault.cancelRequest(constants.ZERO_BYTES32, { from: accounts[1] }),
+        'Ownable: caller is not the owner'
+        );
+      });
+    it('Cannot cancel request with invalid request ID', async () => {
+      await expectRevert(
+        this.dcVault.cancelRequest(constants.ZERO_BYTES32),
+        'Invalid request ID'
+        );
+      });
+    it('Request cannot be canceled during the guard time', async () => {
+      const result = await this.dcVault.getPendingList();
+      const requestIDList = result[0];
+      const requestID = requestIDList[requestIDList.length-1];
+      await expectRevert(
+        this.dcVault.cancelRequest(requestID),
+        'Request cannot be canceled during the guard time'
+        );
+      });
+    it('Unlock event should be emit', async () => {
+      const result = await this.dcVault.getPendingList();
+      let idx = result[0].length-2;
+      let requestID = result[0][idx];
+      await time.increase(1805);
+      let receipt = await this.dcVault.cancelRequest(requestID);
+      expectEvent(receipt, 'DCUnlocked', {
+        toAddress: result[1][idx],
+        amount: result[2][idx]
+        });
+      idx = result[0].length-1
+      requestID = result[0][idx];
+      receipt = await this.dcVault.cancelRequest(requestID);
+      expectEvent(receipt, 'DCUnlocked', {
+        toAddress: result[1][idx],
+        amount: result[2][idx]
+        });
       });
     });
   });
