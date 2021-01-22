@@ -177,8 +177,8 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
     }
 
     // EIP - 2612
-    function nonces(address account) external view returns (uint256) {
-        return DataStorage(dataStorages[0]).getNonce(account);
+    function nonces(address owner) external view returns (uint256) {
+        return DataStorage(dataStorages[0]).getNonce(owner);
     }
 
     function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external {
@@ -194,10 +194,11 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
             abi.encode(
                 keccak256('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'),
                 keccak256(bytes(DataStorage(dataStorages[0]).getName())),
-                keccak256(bytes('2')),
-                chainId,
-                address(this)
-            )
+                keccak256(
+                    bytes('1')),
+                    chainId,
+                    address(this)
+                )
         );
         uint256 nonce = DataStorage(dataStorages[0]).getNonce(owner);
         bytes32 digest = keccak256(
