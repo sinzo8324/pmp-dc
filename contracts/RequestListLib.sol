@@ -2,25 +2,23 @@
 pragma solidity ^0.6.12;
 
 library RequestListLib {
-    bytes32 constant HEAD = bytes32(0);
     struct RequestIDList{
-        mapping (bytes32 => bytes32) reqIDList;
+        mapping (bytes32 => bytes32) next;
+        mapping (bytes32 => bytes32) previous;
         uint256 totalLength;
+        bytes32 head;
+        bytes32 lastRequestID;
     }
 
     function push(RequestIDList storage self, bytes32 reqID) internal {
-        bytes32 lastId = getLastId(self);
-        self.reqIDList[lastId] = reqID;
-        self.totalLength++;
-    }
-
-    function getLastId(RequestIDList storage self) internal view returns(bytes32) {
-        uint256 len = self.totalLength;
-        bytes32 current = HEAD;
-        for( uint256 i = 0; i < len; i++ ) {
-            current = self.reqIDList[current];
+        if(self.head == bytes32(0)) {
+            self.head = reqID;
+        } else {
+            self.next[self.lastRequestID] = reqID;
+            self.previous[reqID] = self.lastRequestID;
         }
-        return current;
+        self.lastRequestID = reqID;
+        self.totalLength++;
     }
 
     function getLength(RequestIDList storage self) internal view returns(uint256) {
@@ -28,20 +26,30 @@ library RequestListLib {
     }
 
     function getNext(RequestIDList storage self, bytes32 reqID) internal view returns(bytes32) {
-        return self.reqIDList[reqID];
+        return self.next[reqID];
     }
 
     function getHead(RequestIDList storage self) internal view returns(bytes32) {
-        return self.reqIDList[HEAD];
-    }
-
-    function updateHead(RequestIDList storage self, bytes32 reqID) internal {
-        self.reqIDList[HEAD] = reqID;
+        return self.head;
     }
 
     function deleteReqID(RequestIDList storage self, bytes32 reqID) internal {
-        require(self.reqIDList[reqID] != 0, 'Cannot delete empty data');
-        delete self.reqIDList[reqID];
+        if(self.head == reqID) {
+            self.head = self.next[reqID];
+            delete self.next[reqID];
+            delete self.previous[self.head];
+        } else if (self.lastRequestID == reqID) {
+            self.lastRequestID = self.previous[reqID];
+            delete self.previous[reqID];
+            delete self.next[self.lastRequestID];
+        } else {
+            bytes32 previous = self.previous[reqID];
+            bytes32 next = self.next[reqID];
+            delete self.previous[reqID];
+            delete self.next[reqID];
+            self.next[previous] = next;
+            self.previous[next] = previous;
+        }
         self.totalLength--;
     }
 
