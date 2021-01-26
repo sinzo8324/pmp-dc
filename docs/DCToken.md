@@ -104,9 +104,9 @@ DCToken
             * signature v,r,s 생성과정
                 1. nonce 조회
                 2. deadline 설정
-                3. Domain Separator 생성
+                3. Domain Separator 생성   
                     <center><img src="./pic2_domainseparator.png" width="600"></center>
-                4. message digest 생성
-                    <center><img src="./pic3_messageDigest1.png" width="600" ></center>
+                4. message digest 생성   
+                    <center><img src="./pic3_messageDigest1.png" width="600" ></center>   
                     <center><img src="./pic4_messageDigest2.png" width="600" ></center>
                 5. owner 계정의 private key로 message digest를 서명
