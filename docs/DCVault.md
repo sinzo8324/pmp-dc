@@ -45,31 +45,40 @@ DCVault
             1. permit 부여를 위한 서명의 유효 기간 설정(deadline, UNIX timestamp)
             2. DC 컨트랙트에서 permit을 생성하는 계정(source)의 현재 nonce 값 확인(nonces(address) 함수를 통해 확인 가능)
             3. DOMAIN_SEPARATOR 생성   
-                DOMAIN_SEPARATOR = keccak256(   
-                    keccak256('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'),   
-                    keccak256('Digital Currency'),   
-                    keccak256('1'),   
-                    $chainID,   
-                    $DCContractAddress,   
-                )   
+                DOMAIN_SEPARATOR = keccak256(
+                <ul>
+                    keccak256('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'),<br>
+                    keccak256('Digital Currency'),<br>
+                    keccak256('1'),<br>
+                    $chainID,<br>
+                    $DCContractAddress
+                </ul>
+                )<br>
                 여기서 chainId, $DCContractAddress 필드는 32바이트에 맞추도록 padding
-            4. PERMIT_TYPEHASH 생성
-                PERMIT_TYPEHASH = keccak256(   
-                    'Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)'   
+            4. PERMIT_TYPEHASH 생성<br>
+                PERMIT_TYPEHASH = keccak256(
+                <ul>
+                    'Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)'<br>
+                </ul>
                 )
-            5. 서명 할 message_digest 생성
-                messageDigest = keccak256(   
-                    '0x19',   
-                    '0x01',   
-                    DOMAIN_SEPARATOR,   
-                    keccak256(   
+
+            5. 서명 할 message_digest 생성<br>
+                messageDigest = keccak256(
+                <ul>
+                    '0x19',<br>
+                    '0x01',<br>
+                    DOMAIN_SEPARATOR,<br>
+                    keccak256(<br>
+                    <ul>
                         PERMIT_TYPEHASH,   
                         ownerAddr,   
                         spenderAddr,   
                         amount,   
                         nonce,   
-                        deadline   
-                    )   
+                        deadline<br>
+                    </ul>
+                    )
+                </ul>   
                 )
             6. message_digest 서명 (by source 계좌의 private key)
     * unlockDCnBurn(address destination, uint256 amount)
