@@ -7,7 +7,7 @@ DCToken
 * 실물 화폐(KRW)가 담보 되어 있음은 발행 권한을 갖는 계정이 보증해야 함
 * DC 화폐 소각 시 상응하는 실물 화폐(KRW)가 지급 됨은 소각 권한을 갖는 계정이 보증해야 함
 
-### 2. 구조
+### 2. 구조<br>
 <center><img src="./pic1_arch.png" width="400"></center><br>
 
 * DC Token은 크게 Proxy, Storage(Primary, Additional), Logic 부로 구분되어 구현 되어 있음
