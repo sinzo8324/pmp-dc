@@ -6,10 +6,27 @@ DCToken
 * 다수의 계정에 하나의 특정 권한 부여, 하나의 특정 권한을 다수의 계정에게 부여 가능
 * 실물 화폐(KRW)가 담보 되어 있음은 발행 권한을 갖는 계정이 보증해야 함
 * DC 화폐 소각 시 상응하는 실물 화폐(KRW)가 지급 됨은 소각 권한을 갖는 계정이 보증해야 함
-* DC Token은 크게 Proxy, DataStorage, Logic 부로 구분되어 구현 되어 있음
-<center><img src="./pic1_arch.png" width="400" height="200"></center>
 
-### 2. 권한의 종류
+### 2. 구조
+<center><img src="./pic1_arch.png" width="400"></center><br>
+
+* DC Token은 크게 Proxy, Storage(Primary, Additional), Logic 부로 구분되어 구현 되어 있음
+* Proxy
+    * DC Token을 사용하고자 하는 외부 Entity 들이 발생 시키는 TX(Transaction)의 목적지가 되는 컨트랙트
+    * DC Token 보유자가 요청하는 DC 토큰 전송, 조회, Approve 등과 같은 TX 수신 시, Logic 컨트랙트에 구현 된 해당되는 함수를 delegate call을 이용하여 호출
+    * Proxy 에 상태변수는 Primary Storage, Additional Storage 관리를 위한 가변 배열이 존재
+* Primary Storage
+    * Proxy 컨트랙트 기본 동작에 필요한 상태 변수를 관리하는 데이터 저장소
+    * Logic 컨트랙트 주소 저장 변수와 이를 업데이트 하는 함수가 구현되어 있음
+    * Logic 컨트랙트 버전 관리를 위한 상태 변수가 존재
+* Additional Storage
+    * Logic 컨트랙트 동작에 필요한 각종 상태 변수들의 기록을 위한 데이터 저장소 역할
+    * 현재는 ERC20 Logic 동작에 필요한 상태변수(토큰 이름, decimal, 심볼, 잔액 등)를 관리하는 컨트랙트(Erc20Storage)만 구현 되어 있음
+* Logic
+    * Erc20 발행, 전송, 조회, 소각, Approve 관련 로직 구현부
+    * Eip-2612 permit, nonces 구현
+
+### 3. 권한의 종류
 * Operator
     * DC Token을 운영하기 위한 Adminitor 역할을 수행
     * DC Token 긴급 동작 정지(pause) 실행 권한을 가짐
@@ -24,7 +41,7 @@ DCToken
     * 특정 계정가 보유한 DC Token 을 소각(Burn) 할 수 있는 권한을 가짐
     * DC Token을 소각하여 이에 상응하는 실물 화폐(KRW)가 DC Token을 보유 했었던 계정에 지급 됨을 본 권한을 가진 계정이 보증해야 함
 
-### 3. 호출 가능한 함수 목록
+### 4. 호출 가능한 함수 목록
 * AccessControl 관련 함수 (Role management)
     * hasRole(bytes32 role, address account) returns (bool)
         * account가 role 권한 보유 여부를 확인
@@ -42,18 +59,20 @@ DCToken
     * renounceRole(bytes32 role, address account)
         * role의 권한을 가진 특정 account가 부여 받은 role을 스스로 반납 할 때 사용
 * DC Token 운영과 관계된 함수 (Operator 권한 필요)
-    * setInitialize(address minter, address burner)
-        * 초기 minter와 burner 타입의 권한을 부여함
-    * addDataStorage(address storageContract)
-        * Proxy 컨트랙트에 연결할 DataStorage 컨트랙트를 추가함
-        * Proxy 컨트랙트에는 다수의 DataStorage 컨트랙트를 연결하기 위해 가변 배열 형태로 DataStorage를 관리함
-    * updateDataStorage(uint256 index, address storageContract)
-        * Proxy 컨트랙트 내부에 DataStorage 컨트랙트를 관리하는 가변 배열의 특정 위치(index)의 DataStorage를 업데이트 할 때 사용
-    * updateLogicContract(address logicContract)
+    * addAdditionalStorage(address storageContractAddress)
+        * Proxy 컨트랙트에 연결 할 additionalStorage 컨트랙트를 추가
+        * Proxy 컨트랙트에는 다수의 additionalStorage 컨트랙트 관리를 위한 가변 배열이 존재
+        * 향후 Logic 컨트랙트 업데이트로 인한 추가 상태변수 사용이 필요한 경우에 사용
+    * updateAdditionalStorage(uint256 index, address storageContract)
+        * Proxy 컨트랙트 내부에 additionalStorage 컨트랙트를 관리하는 가변 배열의 특정 위치(index)의 컨트랙트를 업데이트 할 때 사용
+    * updateLogicContract(address logicContract, string calldata version)
         * Proxy 컨트랙트에 연결 된 Logic 컨드랙트(ERC20 전송 로직 구현부)를 업데이트 할 때 사용
     * transferStorageOwnership(uint256 index, address target)
-        * Data Storage 컨트랙트는 특정 계정만이 내부의 Data를 업데이트 할 수 있도록 Ownership 기반의 update 함수로 구현되어 있음
+        * Additional Storage 컨트랙트는 특정 계정만이 내부의 Data를 업데이트 할 수 있도록 Ownership 기반의 update 함수로 구현되어 있음
         * 운영간 저장 된 내부 data 강제 업데이트가 필요한 상황을 대비하여 ownership을 proxy에서 다른 계정으로의 반환에 사용하기 위해 만들어진 함수
+    * addRoleType(bytes32 role)
+        * DC Token 운영을 위한 새로운 Role 정의 시 사용
+        * 현재는 Operator, Minter, Burner 총 3가지의 Role이 정의 됨
     * pause()
         * 토큰의 발행, 소각, 전송 기능을 강제 중지 시킴
         * Operator 권한을 부여받은 계정에서만 호출 가능
