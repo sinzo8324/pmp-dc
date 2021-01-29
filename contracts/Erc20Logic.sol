@@ -3,27 +3,23 @@
  */
 pragma solidity ^0.6.12;
 
-import './DataStorage.sol';
+import './PrimaryStorage.sol';
+import './Erc20Storage.sol';
 import 'openzeppelin-solidity/contracts/access/AccessControl.sol';
 import 'openzeppelin-solidity/contracts/utils/Pausable.sol';
 import 'openzeppelin-solidity/contracts/token/ERC20/IERC20.sol';
 import 'openzeppelin-solidity/contracts/math/SafeMath.sol';
 
-
 contract Erc20Logic is AccessControl, Pausable, IERC20 {
     using SafeMath for uint256;
-    bytes32 public constant TYPE_COMPLIANCE = keccak256('TYPE_COMPLIANCE');
-    bytes32 public constant TYPE_MINTER = keccak256('TYPE_MINTER');
-    bytes32 public constant TYPE_BURNER = keccak256('TYPE_BURNER');
-    bytes32 public constant TYPE_OPERATOR = keccak256('TYPE_OPERATOR');
-    address[] public dataStorages;
-    bool public initialized = false;
+    address public primaryStorage;
+    address[] public additionalStorages;
 
     /**
      * @dev Returns the name of the token.
      */
     function name() external view returns (string memory) {
-        return DataStorage(dataStorages[0]).getName();
+        return Erc20Storage(additionalStorages[0]).getName();
     }
 
     /**
@@ -31,7 +27,7 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
      * name.
      */
     function symbol() external view returns (string memory) {
-        return DataStorage(dataStorages[0]).getSymbol();
+        return Erc20Storage(additionalStorages[0]).getSymbol();
     }
 
     /**
@@ -48,21 +44,21 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
      * {IERC20-balanceOf} and {IERC20-transfer}.
      */
     function decimals() external view returns (uint8) {
-        return DataStorage(dataStorages[0]).getDecimals();
+        return Erc20Storage(additionalStorages[0]).getDecimals();
     }
 
     /**
      * @dev See {IERC20-totalSupply}.
      */
     function totalSupply() public view override returns (uint256) {
-        return DataStorage(dataStorages[0]).getTotalSupply();
+        return Erc20Storage(additionalStorages[0]).getTotalSupply();
     }
 
     /**
      * @dev See {IERC20-balanceOf}.
      */
     function balanceOf(address account) public view override returns (uint256) {
-        return DataStorage(dataStorages[0]).getBalance(account);
+        return Erc20Storage(additionalStorages[0]).getBalance(account);
     }
 
     /**
@@ -82,7 +78,7 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
      * @dev See {IERC20-allowance}.
      */
     function allowance(address owner, address spender) public view override returns (uint256) {
-        return DataStorage(dataStorages[0]).getAllowance(owner, spender);
+        return Erc20Storage(additionalStorages[0]).getAllowance(owner, spender);
     }
 
     /**
@@ -111,7 +107,7 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
      */
     function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
         _transfer(sender, recipient, amount);
-        uint256 allowances = DataStorage(dataStorages[0]).getAllowance(sender, _msgSender());
+        uint256 allowances = Erc20Storage(additionalStorages[0]).getAllowance(sender, _msgSender());
         _approve(sender, _msgSender(), allowances.sub(amount, "ERC20: transfer amount exceeds allowance"));
         return true;
     }
@@ -129,7 +125,7 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
      * - `spender` cannot be the zero address.
      */
     function increaseAllowance(address spender, uint256 addedValue) public returns (bool) {
-        uint256 allowances = DataStorage(dataStorages[0]).getAllowance(_msgSender(), spender);
+        uint256 allowances = Erc20Storage(additionalStorages[0]).getAllowance(_msgSender(), spender);
         _approve(_msgSender(), spender, allowances.add(addedValue));
         return true;
     }
@@ -149,36 +145,26 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
      * `subtractedValue`.
      */
     function decreaseAllowance(address spender, uint256 subtractedValue) public returns (bool) {
-        uint256 allowances = DataStorage(dataStorages[0]).getAllowance(_msgSender(), spender);
+        uint256 allowances = Erc20Storage(additionalStorages[0]).getAllowance(_msgSender(), spender);
         _approve(_msgSender(), spender, allowances.sub(subtractedValue, "ERC20: decreased allowance below zero"));
         return true;
     }
 
-    function issue(address _tokenHolder, uint256 _value) external {
-        require(hasRole(TYPE_MINTER, _msgSender()), 'Caller is not the Minter');
-        require(_value != 0,  "Can not mint zero amount");
-        _mint(_tokenHolder, _value);
+    function issue(address tokenHolder, uint256 value) external {
+        require(hasRole(Erc20Storage(additionalStorages[0]).TYPE_MINTER(), _msgSender()), 'Caller is not the Minter');
+        require(value != 0,  "Can not mint zero amount");
+        _mint(tokenHolder, value);
     }
 
-    function redeem(address _tokenHolder, uint256 _value) external {
-        require(hasRole(TYPE_BURNER, _msgSender()), 'Caller is not the Burner');
-        require(_value != 0,  "Can not redeem zero amount");
-        _burn(_tokenHolder, _value);
-    }
-
-    function pause() external {
-        require(hasRole(TYPE_OPERATOR, _msgSender()), 'Caller is not the Operator');
-        _pause();
-    }
-
-    function unpause() external {
-        require(hasRole(TYPE_OPERATOR, _msgSender()), 'Caller is not the Operator');
-        _unpause();
+    function redeem(address tokenHolder, uint256 value) external {
+        require(hasRole(Erc20Storage(additionalStorages[0]).TYPE_BURNER(), _msgSender()), 'Caller is not the Burner');
+        require(value != 0,  "Can not redeem zero amount");
+        _burn(tokenHolder, value);
     }
 
     // EIP - 2612
     function nonces(address owner) external view returns (uint256) {
-        return DataStorage(dataStorages[0]).getNonce(owner);
+        return Erc20Storage(additionalStorages[0]).getNonce(owner);
     }
 
     function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external {
@@ -193,13 +179,13 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
         bytes32 domainSeparator = keccak256(
             abi.encode(
                 keccak256('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'),
-                keccak256(bytes(DataStorage(dataStorages[0]).getName())),
-                keccak256(bytes('1')),
+                keccak256(bytes(Erc20Storage(additionalStorages[0]).getName())),
+                keccak256(bytes(PrimaryStorage(primaryStorage).getVersion())),
                 chainId,
                 address(this)
                 )
         );
-        uint256 nonce = DataStorage(dataStorages[0]).getNonce(owner);
+        uint256 nonce = Erc20Storage(additionalStorages[0]).getNonce(owner);
         bytes32 digest = keccak256(
             abi.encodePacked(
                 '\x19\x01',
@@ -210,7 +196,7 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
 
         address recoveredAddress = ecrecover(digest, v, r, s);
         require(recoveredAddress != address(0) && recoveredAddress == owner, 'Erc20Logic: INVALID_SIGNATURE');
-        DataStorage(dataStorages[0]).increaseNonce(owner);
+        Erc20Storage(additionalStorages[0]).increaseNonce(owner);
         _approve(owner, spender, value);
     }
 
@@ -233,12 +219,12 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
         require(recipient != address(0), "ERC20: transfer to the zero address");
 
         _beforeTokenTransfer(sender, recipient, amount);
-        uint256 senderBalance = DataStorage(dataStorages[0]).getBalance(sender);
-        uint256 recipientBalance = DataStorage(dataStorages[0]).getBalance(recipient);
+        uint256 senderBalance = Erc20Storage(additionalStorages[0]).getBalance(sender);
+        uint256 recipientBalance = Erc20Storage(additionalStorages[0]).getBalance(recipient);
         senderBalance = senderBalance.sub(amount, "ERC20: transfer amount exceeds balance");
         recipientBalance = recipientBalance.add(amount);
-        DataStorage(dataStorages[0]).updateBalance(sender, senderBalance);
-        DataStorage(dataStorages[0]).updateBalance(recipient, recipientBalance);
+        Erc20Storage(additionalStorages[0]).updateBalance(sender, senderBalance);
+        Erc20Storage(additionalStorages[0]).updateBalance(recipient, recipientBalance);
         emit Transfer(sender, recipient, amount);
     }
 
@@ -255,14 +241,14 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
         require(account != address(0), "ERC20: mint to the zero address");
 
         _beforeTokenTransfer(address(0), account, amount);
-        uint256 currentTotalSupply = DataStorage(dataStorages[0]).getTotalSupply();
-        uint256 targetBalance = DataStorage(dataStorages[0]).getBalance(account);
+        uint256 currentTotalSupply = Erc20Storage(additionalStorages[0]).getTotalSupply();
+        uint256 targetBalance = Erc20Storage(additionalStorages[0]).getBalance(account);
 
         currentTotalSupply = currentTotalSupply.add(amount);
         targetBalance = targetBalance.add(amount);
 
-        DataStorage(dataStorages[0]).updateTotalSupply(currentTotalSupply);
-        DataStorage(dataStorages[0]).updateBalance(account, targetBalance);
+        Erc20Storage(additionalStorages[0]).updateTotalSupply(currentTotalSupply);
+        Erc20Storage(additionalStorages[0]).updateBalance(account, targetBalance);
 
         emit Transfer(address(0), account, amount);
     }
@@ -283,14 +269,14 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
 
         _beforeTokenTransfer(account, address(0), amount);
 
-        uint256 currentTotalSupply = DataStorage(dataStorages[0]).getTotalSupply();
-        uint256 targetBalance = DataStorage(dataStorages[0]).getBalance(account);
+        uint256 currentTotalSupply = Erc20Storage(additionalStorages[0]).getTotalSupply();
+        uint256 targetBalance = Erc20Storage(additionalStorages[0]).getBalance(account);
 
         targetBalance = targetBalance.sub(amount, "ERC20: burn amount exceeds balance");
         currentTotalSupply = currentTotalSupply.sub(amount);
 
-        DataStorage(dataStorages[0]).updateTotalSupply(currentTotalSupply);
-        DataStorage(dataStorages[0]).updateBalance(account, targetBalance);
+        Erc20Storage(additionalStorages[0]).updateTotalSupply(currentTotalSupply);
+        Erc20Storage(additionalStorages[0]).updateBalance(account, targetBalance);
 
         emit Transfer(account, address(0), amount);
     }
@@ -312,7 +298,7 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
         require(owner != address(0), "ERC20: approve from the zero address");
         require(spender != address(0), "ERC20: approve to the zero address");
 
-        DataStorage(dataStorages[0]).updateAllowance(owner, spender, amount);
+        Erc20Storage(additionalStorages[0]).updateAllowance(owner, spender, amount);
         emit Approval(owner, spender, amount);
     }
 
