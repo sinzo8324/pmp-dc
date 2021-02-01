@@ -2,18 +2,35 @@ const fs = require('fs');
 const path = require('path');
 const Web3 = require('web3');
 
-async function deploy(contractName, web3, address) {
+const TYPE_MINTER = '0xa8791d3acb7f4f152c41f3308e90b16e68a23666347d9c4c5ce8535dffead10d';
+const TYPE_BURNER = '0x9a433df5d818859975655002918d19fe2ba4567432e52f0cec8426ddf4dc2ada';
+const VERSION = '1';
+
+async function deploy(contractName, input, web3, address) {
     try {
         const source = fs.readFileSync(path.join(__dirname, './build/contracts/'+contractName+'.json'));
         const contract = JSON.parse(source);
         const contractToDeploy = new web3.eth.Contract(contract.abi);
         const nonce = await web3.eth.getTransactionCount(address);
-        const gas = await contractToDeploy.deploy({data: contract.bytecode}).estimateGas({from: address});
-        const result = await contractToDeploy.deploy({data: contract.bytecode}).send({from: address, gas: gas, nonce: nonce});
+        let gas;
+        let result;
+        if(input !== null) {
+            gas = await contractToDeploy.deploy({data: contract.bytecode, arguments: input}).estimateGas({from: address});
+            result = await contractToDeploy.deploy({data: contract.bytecode, arguments: input}).send({from: address, gas: gas, nonce: nonce});
+        } else {
+            gas = await contractToDeploy.deploy({data: contract.bytecode}).estimateGas({from: address});
+            result = await contractToDeploy.deploy({data: contract.bytecode}).send({from: address, gas: gas, nonce: nonce});
+        }
         return new web3.eth.Contract(contract.abi, result.options.address);
     } catch(err) {
         console.log(err);
     }
+}
+
+async function sendTransaction(web3, tx, address) {
+    const nonce = await web3.eth.getTransactionCount(address);
+    const gas = await tx.estimateGas({from: address});
+    await tx.send({from: address, gas: gas, nonce: nonce});
 }
 
 function argvParser(processArgv){
@@ -34,38 +51,30 @@ async function main() {
         await web3.eth.accounts.wallet.add(account);
         const source = fs.readFileSync(path.join(__dirname, './accountInfo.json'));
         const accountInfo = JSON.parse(source);
-        const proxy = await deploy('Proxy', web3, account.address);
-        const erc20Logic = await deploy('Erc20Logic', web3, account.address);
-        const dataStorage = await deploy('DataStorage', web3, account.address);
-        const dcVault = await deploy('DCVault', web3, account.address);
+        const erc20Logic = await deploy('Erc20Logic', null, web3, account.address);
+        const primaryStorage = await deploy('PrimaryStorage', null, web3, account.address);
+        const erc20Storage = await deploy('Erc20Storage', null, web3, account.address);
+        const proxy = await deploy('Proxy', [primaryStorage._address], web3, account.address);
+        const dcVault = await deploy('DCVault', null, web3, account.address);
 
-        const nonce = await web3.eth.getTransactionCount(account.address);
-
-        let gas = await dataStorage.methods.updateTokenDetails('Digital Currency', 'WON', '0').estimateGas({from: account.address});
-        await dataStorage.methods.updateTokenDetails('Digital Currency', 'WON', '0').send({from: account.address, gas: gas, nonce: nonce});
-
-        gas = await dataStorage.methods.transferOwnership(proxy._address).estimateGas({from: account.address});
-        await dataStorage.methods.transferOwnership(proxy._address).send({from: account.address, gas: gas});
-
-        gas = await proxy.methods.addDataStorage(dataStorage._address).estimateGas({from: account.address});
-        await proxy.methods.addDataStorage(dataStorage._address).send({from: account.address, gas: gas});
-
-        gas = await proxy.methods.updateLogicContract(erc20Logic._address).estimateGas({from: account.address});
-        await proxy.methods.updateLogicContract(erc20Logic._address).send({from: account.address, gas: gas});
-
-        gas = await proxy.methods.setInitialize(accountInfo.Compliance, accountInfo.Minter, accountInfo.Burner, accountInfo.Operator).estimateGas({from: account.address});
-        await proxy.methods.setInitialize(accountInfo.Compliance, accountInfo.Minter, accountInfo.Burner, accountInfo.Operator).send({from: account.address, gas: gas});
-
-        gas = await dcVault.methods.setDCContractAddress(proxy._address).estimateGas({from:account.address});
-        await dcVault.methods.setDCContractAddress(proxy._address).send({from:account.address, gas: gas});
-
-        gas = await dcVault.methods.transferOwnership(accountInfo.Operator).estimateGas({from:account.address});
-        await dcVault.methods.transferOwnership(accountInfo.Operator).send({from: account.address, gas: gas});
+        await sendTransaction(web3, primaryStorage.methods.transferOwnership(proxy._address), account.address);
+        await sendTransaction(web3, erc20Storage.methods.updateTokenDetails('Digital Currency', 'WON', '0'), account.address);
+        await sendTransaction(web3, erc20Storage.methods.transferOwnership(proxy._address), account.address);
+        await sendTransaction(web3, proxy.methods.addAdditionalStorage(erc20Storage._address), account.address);
+        await sendTransaction(web3, proxy.methods.updateLogicContract(erc20Logic._address, VERSION), account.address);
+        await sendTransaction(web3, proxy.methods.addRoleType(TYPE_MINTER), account.address);
+        await sendTransaction(web3, proxy.methods.addRoleType(TYPE_BURNER), account.address);
+        await sendTransaction(web3, proxy.methods.grantRole(TYPE_MINTER, accountInfo.Minter), account.address);
+        await sendTransaction(web3, proxy.methods.grantRole(TYPE_MINTER, dcVault._address), account.address);
+        await sendTransaction(web3, proxy.methods.grantRole(TYPE_BURNER, accountInfo.Burner), account.address);
+        await sendTransaction(web3, proxy.methods.grantRole(TYPE_BURNER, dcVault._address), account.address);
+        await sendTransaction(web3, dcVault.methods.setDCContractAddress(proxy._address), account.address);
 
         const deployResult = {
             Proxy: proxy._address,
+            PrimaryStorage: primaryStorage._address,
             Erc20Logic: erc20Logic._address,
-            DataStorage: dataStorage._address,
+            Erc20Storage: erc20Storage._address,
             DCVault: dcVault._address
         }
 
