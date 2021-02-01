@@ -4,25 +4,29 @@ const { ecsign } = require('ethereumjs-util');
 require('chai').should();
 
 const Proxy = artifacts.require('Proxy');
+const PrimaryStorage = artifacts.require('PrimaryStorage');
+const Erc20Storage = artifacts.require('Erc20Storage');
 const Erc20Logic = artifacts.require('Erc20Logic');
-const DataStorage = artifacts.require('DataStorage');
 
 const testAccountPrivateKey = '0xFACDC25AB42FD449CA9CD505AAE912BBFF3F5B1880F70B3F63E1C733128032A7';
 const testAccount = web3.eth.accounts.privateKeyToAccount(testAccountPrivateKey).address;
 
+const version = '1';
+const chainId = '1';
 const PERMIT_TYPEHASH = keccak256(
   toUtf8Bytes('Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)')
 );
+const TYPE_MINTER = keccak256(toUtf8Bytes('TYPE_MINTER'));
+const TYPE_BURNER = keccak256(toUtf8Bytes('TYPE_BURNER'));
 
 async function getDomainSeparator(name, tokenAddress) {
-  const chainId = '1';
   return keccak256(
     defaultAbiCoder.encode(
       ['bytes32', 'bytes32', 'bytes32', 'uint256', 'address'],
       [
         keccak256(toUtf8Bytes('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)')),
         keccak256(toUtf8Bytes(name)),
-        keccak256(toUtf8Bytes('1')),
+        keccak256(toUtf8Bytes(version)),
         chainId,
         tokenAddress
       ]
@@ -47,36 +51,26 @@ async function getApprovalDigest(name, contractAddr, ownerAddr, spenderAddr, amo
   );
 }
 
-contract('Digital Currency', async ([deployer, compliance, minter, burner, operator, ...accounts]) => {
+contract('Digital Currency', async ([operator, minter, burner, ...accounts]) => {
   before(async () => {
-    this.erc20Proxy = await Proxy.new({from: deployer});
-    this.erc20Logic = await Erc20Logic.new({from: deployer});
-    this.dataStorage = await DataStorage.new({from: deployer});
+    this.erc20Logic = await Erc20Logic.new({from: operator});
+    this.primaryStorage = await PrimaryStorage.new({from: operator});
+    this.erc20Storage = await Erc20Storage.new();
+    this.erc20Proxy = await Proxy.new(this.primaryStorage.address, {from: operator});
 
-    await this.dataStorage.updateTokenDetails('Digital Currency', 'WON', '0', {from: deployer});
-    await this.dataStorage.transferOwnership(this.erc20Proxy.address, {from: deployer});
-    await this.erc20Proxy.addDataStorage(this.dataStorage.address, {from: deployer});
-    await this.erc20Proxy.updateLogicContract(this.erc20Logic.address, {from: deployer});
-    await this.erc20Proxy.setInitialize(compliance, minter, burner, operator, {from: deployer});
+    await this.primaryStorage.transferOwnership(this.erc20Proxy.address);
+    await this.erc20Storage.updateTokenDetails('Digital Currency', 'WON', '0', {from: operator});
+    await this.erc20Storage.transferOwnership(this.erc20Proxy.address, {from: operator});
+    await this.erc20Proxy.addAdditionalStorage(this.erc20Storage.address, {from: operator});
+    await this.erc20Proxy.updateLogicContract(this.erc20Logic.address, version, {from: operator});
+    await this.erc20Proxy.addRoleType(TYPE_MINTER, {from: operator});
+    await this.erc20Proxy.addRoleType(TYPE_BURNER, {from: operator});
+    await this.erc20Proxy.grantRole(TYPE_MINTER, minter, {from: operator});
+    await this.erc20Proxy.grantRole(TYPE_BURNER, burner, {from: operator});
 
     this.erc20Token = await Erc20Logic.at(this.erc20Proxy.address);
     });
  
-  describe('setInitalize function', async () => {
-    it('deployer renounce Operator role', async () => {
-      await expectRevert(
-        this.erc20Proxy.setInitialize(compliance, minter, burner, operator, {from: deployer}),
-        'Caller is not the Operator'
-      );
-    });
-    it('cannot initalize twice', async () => {
-      await expectRevert(
-        this.erc20Proxy.setInitialize(compliance, minter, burner, operator, {from: operator}),
-        'The proxy contract has been initialied already'
-      );
-    });
-  });
-
   describe('Check token details', async () => {
     it('Check Token name', async () => {
       const result = await this.erc20Token.name();
@@ -118,7 +112,7 @@ contract('Digital Currency', async ([deployer, compliance, minter, burner, opera
   describe('redeem function', async () => {
     it('only burner can use the function', async () => {
       await expectRevert(
-        this.erc20Token.redeem(accounts[0], 100, { from: deployer }),
+        this.erc20Token.redeem(accounts[0], 100, { from: accounts[0] }),
         'Caller is not the Burner'
         );
       });
@@ -160,19 +154,19 @@ contract('Digital Currency', async ([deployer, compliance, minter, burner, opera
   describe('pause function', async () => {
     it('only Operator can pause the contract', async () => {
       await expectRevert(
-        this.erc20Token.pause({from: deployer}),
+        this.erc20Proxy.pause({from: accounts[0]}),
         'Caller is not the Operator'
         );
       });
     it('Paused event should be emit if the contract is paused', async () => {
-      const receipt = await this.erc20Token.pause({ from: operator });
+      const receipt = await this.erc20Proxy.pause({ from: operator });
       expectEvent(receipt, 'Paused', {
         account: operator,
         });
       });
     it('can not pause if the state of the contract paused', async () => {
       await expectRevert(
-        this.erc20Token.pause({from: operator }),
+        this.erc20Proxy.pause({from: operator }),
         'Pausable: paused'
         );
       });
@@ -180,19 +174,19 @@ contract('Digital Currency', async ([deployer, compliance, minter, burner, opera
   describe('unpause function', async () => {
     it('only Operator can unpause the contract', async () => {
       await expectRevert(
-        this.erc20Token.unpause({from: deployer}),
+        this.erc20Proxy.unpause({from: accounts[0]}),
         'Caller is not the Operator'
         );
       });
     it('Unpaused event should be emit if the contract is unpaused', async () => {
-      const receipt = await this.erc20Token.unpause({ from: operator });
+      const receipt = await this.erc20Proxy.unpause({ from: operator });
       expectEvent(receipt, 'Unpaused', {
         account: operator,
         });
       });
     it('can not unpause if the state of the contract unpaused', async () => {
       await expectRevert(
-        this.erc20Token.unpause({ from: operator }),
+        this.erc20Proxy.unpause({ from: operator }),
         'Pausable: not paused'
         );
       });

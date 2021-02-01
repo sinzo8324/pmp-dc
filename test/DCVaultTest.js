@@ -5,8 +5,9 @@ const { soliditySha3 } = require("web3-utils");
 require('chai').should();
 
 const Proxy = artifacts.require('Proxy');
+const PrimaryStorage = artifacts.require('PrimaryStorage');
+const Erc20Storage = artifacts.require('Erc20Storage');
 const Erc20Logic = artifacts.require('Erc20Logic');
-const DataStorage = artifacts.require('DataStorage');
 const DCVault = artifacts.require('DCVault');
 
 require("chai").should();
@@ -23,6 +24,9 @@ function generateRequestID(contractAddress, account, amount, count) {
 const testAccountPrivateKey = '0xFACDC25AB42FD449CA9CD505AAE912BBFF3F5B1880F70B3F63E1C733128032A7';
 const testAccount = web3.eth.accounts.privateKeyToAccount(testAccountPrivateKey).address;
 
+const chainId = '1';
+const version = '1';
+
 const PERMIT_TYPEHASH = keccak256(
   toUtf8Bytes('Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)')
 );
@@ -31,14 +35,13 @@ const TYPE_MINTER = soliditySha3('TYPE_MINTER');
 const TYPE_BURNER = soliditySha3('TYPE_BURNER');
 
 async function getDomainSeparator(name, tokenAddress) {
-  const chainId = '1';
   return keccak256(
     defaultAbiCoder.encode(
       ['bytes32', 'bytes32', 'bytes32', 'uint256', 'address'],
       [
         keccak256(toUtf8Bytes('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)')),
         keccak256(toUtf8Bytes(name)),
-        keccak256(toUtf8Bytes('1')),
+        keccak256(toUtf8Bytes(version)),
         chainId,
         tokenAddress
       ]
@@ -65,17 +68,22 @@ async function getApprovalDigest(name, contractAddr, ownerAddr, spenderAddr, amo
 
 contract('DCVault', accounts => {
   before(async () => {
-    this.erc20Proxy = await Proxy.new();
     this.erc20Logic = await Erc20Logic.new();
-    this.dataStorage = await DataStorage.new();
+    this.primaryStorage = await PrimaryStorage.new();
+    this.erc20Proxy = await Proxy.new(this.primaryStorage.address);
+    this.erc20Storage = await Erc20Storage.new();
     this.dcVault = await DCVault.new();
 
-    await this.dataStorage.updateTokenDetails('Digital Currency', 'WON', '0');
-    await this.dataStorage.transferOwnership(this.erc20Proxy.address);
-    await this.erc20Proxy.addDataStorage(this.dataStorage.address);
-    await this.erc20Proxy.updateLogicContract(this.erc20Logic.address);
+    await this.primaryStorage.transferOwnership(this.erc20Proxy.address);
+    await this.erc20Storage.updateTokenDetails('Digital Currency', 'WON', '0');
+    await this.erc20Storage.transferOwnership(this.erc20Proxy.address);
+    await this.erc20Proxy.addAdditionalStorage(this.erc20Storage.address);
+    await this.erc20Proxy.updateLogicContract(this.erc20Logic.address, version);
+    await this.erc20Proxy.addRoleType(TYPE_MINTER);
+    await this.erc20Proxy.addRoleType(TYPE_BURNER);
+
     await this.dcVault.setDCContractAddress(this.erc20Proxy.address);
-    await this.erc20Proxy.setInitialize(accounts[0], accounts[0], accounts[0], accounts[0]);
+    await this.erc20Proxy.grantRole(TYPE_MINTER, accounts[0], { from: accounts[0] });
     await this.erc20Proxy.grantRole(TYPE_MINTER, this.dcVault.address, { from: accounts[0] });
     await this.erc20Proxy.grantRole(TYPE_BURNER, this.dcVault.address, { from: accounts[0] });
     this.erc20Token = await Erc20Logic.at(this.erc20Proxy.address);
