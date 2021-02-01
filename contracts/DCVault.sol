@@ -6,9 +6,10 @@ pragma solidity ^0.6.12;
 import 'openzeppelin-solidity/contracts/access/Ownable.sol';
 import 'openzeppelin-solidity/contracts/token/ERC20/IERC20.sol';
 import './IDCContract.sol';
+import './IERC223Recipient.sol';
 import './RequestListLib.sol';
 
-contract DCVault is Ownable {
+contract DCVault is Ownable, IERC223Recipient {
     using RequestListLib for RequestListLib.RequestIDList;
 
     struct PendingReq {
@@ -117,6 +118,12 @@ contract DCVault is Ownable {
         unlockDC(destination, amount);
     }
 
+    function tokenFallback(address from, uint256 value, bytes memory data) override external {
+        //
+        from;
+        value;
+        data;
+    }
     // function unlockDC(address[] calldata destination, uint256[] calldata amount) external onlyOwner {
     //     for(uint256 i = 0; i < destination.length; i++) {
     //         IERC20(dcContractAddress).transfer(destination[i], amount[i]);

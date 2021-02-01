@@ -5,6 +5,7 @@ pragma solidity ^0.6.12;
 
 import './PrimaryStorage.sol';
 import './Erc20Storage.sol';
+import './IERC223Recipient.sol';
 import 'openzeppelin-solidity/contracts/access/AccessControl.sol';
 import 'openzeppelin-solidity/contracts/utils/Pausable.sol';
 import 'openzeppelin-solidity/contracts/token/ERC20/IERC20.sol';
@@ -171,14 +172,14 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
         require(deadline >= block.timestamp, 'Erc20Logic: EXPIRED');
 
         uint256 chainId;
-        // keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
-        bytes32 permitTypeHash = 0x6e71edae12b1b97f4d1f60370fef10105fa2faae0126114a169c64845d6126c9;
+        bytes32 permitTypeHash = Erc20Storage(additionalStorages[0]).PERMIT_TYPE();
+        bytes32 eip712Domain = Erc20Storage(additionalStorages[0]).EIP712_DOMAIN();
 
         assembly { chainId := chainid() }
 
         bytes32 domainSeparator = keccak256(
             abi.encode(
-                keccak256('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'),
+                eip712Domain,
                 keccak256(bytes(Erc20Storage(additionalStorages[0]).getName())),
                 keccak256(bytes(PrimaryStorage(primaryStorage).getVersion())),
                 chainId,
@@ -225,6 +226,11 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
         recipientBalance = recipientBalance.add(amount);
         Erc20Storage(additionalStorages[0]).updateBalance(sender, senderBalance);
         Erc20Storage(additionalStorages[0]).updateBalance(recipient, recipientBalance);
+
+        if(Address.isContract(recipient)) {
+            IERC223Recipient(recipient).tokenFallback(sender, amount, "");
+        }
+
         emit Transfer(sender, recipient, amount);
     }
 
@@ -249,6 +255,10 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
 
         Erc20Storage(additionalStorages[0]).updateTotalSupply(currentTotalSupply);
         Erc20Storage(additionalStorages[0]).updateBalance(account, targetBalance);
+
+        if(Address.isContract(account)) {
+            IERC223Recipient(account).tokenFallback(address(0), amount, "");
+        }
 
         emit Transfer(address(0), account, amount);
     }
