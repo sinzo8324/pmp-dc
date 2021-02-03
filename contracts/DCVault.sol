@@ -119,11 +119,12 @@ contract DCVault is Ownable, IERC223Recipient {
     }
 
     function tokenFallback(address from, uint256 value, bytes memory data) override external {
-        //
+        require(_msgSender() == dcContractAddress, 'DCVault: Only DC Token Contract can use the function');
         from;
         value;
         data;
     }
+
     // function unlockDC(address[] calldata destination, uint256[] calldata amount) external onlyOwner {
     //     for(uint256 i = 0; i < destination.length; i++) {
     //         IERC20(dcContractAddress).transfer(destination[i], amount[i]);
