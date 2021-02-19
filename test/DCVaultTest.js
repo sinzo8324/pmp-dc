@@ -12,7 +12,7 @@ const {
     solidityPack
 } = require('ethers/utils');
 const { ecsign } = require('ethereumjs-util');
-const { soliditySha3 } = require("web3-utils");
+const { soliditySha3 } = require('web3-utils');
 require('chai').should();
 
 const Proxy = artifacts.require('Proxy');

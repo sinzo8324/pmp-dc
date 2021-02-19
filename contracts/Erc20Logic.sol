@@ -109,7 +109,7 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
     function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
         _transfer(sender, recipient, amount);
         uint256 allowances = Erc20Storage(additionalStorages[0]).getAllowance(sender, _msgSender());
-        _approve(sender, _msgSender(), allowances.sub(amount, "ERC20: transfer amount exceeds allowance"));
+        _approve(sender, _msgSender(), allowances.sub(amount, 'ERC20: transfer amount exceeds allowance'));
         return true;
     }
 
@@ -147,19 +147,19 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
      */
     function decreaseAllowance(address spender, uint256 subtractedValue) public returns (bool) {
         uint256 allowances = Erc20Storage(additionalStorages[0]).getAllowance(_msgSender(), spender);
-        _approve(_msgSender(), spender, allowances.sub(subtractedValue, "ERC20: decreased allowance below zero"));
+        _approve(_msgSender(), spender, allowances.sub(subtractedValue, 'ERC20: decreased allowance below zero'));
         return true;
     }
 
     function issue(address tokenHolder, uint256 value) external {
         require(hasRole(Erc20Storage(additionalStorages[0]).TYPE_MINTER(), _msgSender()), 'Caller is not the Minter');
-        require(value != 0,  "Can not mint zero amount");
+        require(value != 0,  'Can not mint zero amount');
         _mint(tokenHolder, value);
     }
 
     function redeem(address tokenHolder, uint256 value) external {
         require(hasRole(Erc20Storage(additionalStorages[0]).TYPE_BURNER(), _msgSender()), 'Caller is not the Burner');
-        require(value != 0,  "Can not redeem zero amount");
+        require(value != 0,  'Can not redeem zero amount');
         _burn(tokenHolder, value);
     }
 
@@ -216,19 +216,19 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
      * - `sender` must have a balance of at least `amount`.
      */
     function _transfer(address sender, address recipient, uint256 amount) internal {
-        require(sender != address(0), "ERC20: transfer from the zero address");
-        require(recipient != address(0), "ERC20: transfer to the zero address");
+        require(sender != address(0), 'ERC20: transfer from the zero address');
+        require(recipient != address(0), 'ERC20: transfer to the zero address');
 
         _beforeTokenTransfer(sender, recipient, amount);
         uint256 senderBalance = Erc20Storage(additionalStorages[0]).getBalance(sender);
         uint256 recipientBalance = Erc20Storage(additionalStorages[0]).getBalance(recipient);
-        senderBalance = senderBalance.sub(amount, "ERC20: transfer amount exceeds balance");
+        senderBalance = senderBalance.sub(amount, 'ERC20: transfer amount exceeds balance');
         recipientBalance = recipientBalance.add(amount);
         Erc20Storage(additionalStorages[0]).updateBalance(sender, senderBalance);
         Erc20Storage(additionalStorages[0]).updateBalance(recipient, recipientBalance);
 
         if(Address.isContract(recipient)) {
-            IERC223Recipient(recipient).tokenFallback(sender, amount, "");
+            IERC223Recipient(recipient).tokenFallback(sender, amount, '');
         }
 
         emit Transfer(sender, recipient, amount);
@@ -244,7 +244,7 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
      * - `to` cannot be the zero address.
      */
     function _mint(address account, uint256 amount) internal {
-        require(account != address(0), "ERC20: mint to the zero address");
+        require(account != address(0), 'ERC20: mint to the zero address');
 
         _beforeTokenTransfer(address(0), account, amount);
         uint256 currentTotalSupply = Erc20Storage(additionalStorages[0]).getTotalSupply();
@@ -257,7 +257,7 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
         Erc20Storage(additionalStorages[0]).updateBalance(account, targetBalance);
 
         if(Address.isContract(account)) {
-            IERC223Recipient(account).tokenFallback(address(0), amount, "");
+            IERC223Recipient(account).tokenFallback(address(0), amount, '');
         }
 
         emit Transfer(address(0), account, amount);
@@ -275,14 +275,14 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
      * - `account` must have at least `amount` tokens.
      */
     function _burn(address account, uint256 amount) internal {
-        require(account != address(0), "ERC20: burn from the zero address");
+        require(account != address(0), 'ERC20: burn from the zero address');
 
         _beforeTokenTransfer(account, address(0), amount);
 
         uint256 currentTotalSupply = Erc20Storage(additionalStorages[0]).getTotalSupply();
         uint256 targetBalance = Erc20Storage(additionalStorages[0]).getBalance(account);
 
-        targetBalance = targetBalance.sub(amount, "ERC20: burn amount exceeds balance");
+        targetBalance = targetBalance.sub(amount, 'ERC20: burn amount exceeds balance');
         currentTotalSupply = currentTotalSupply.sub(amount);
 
         Erc20Storage(additionalStorages[0]).updateTotalSupply(currentTotalSupply);
@@ -305,8 +305,8 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
      * - `spender` cannot be the zero address.
      */
     function _approve(address owner, address spender, uint256 amount) internal {
-        require(owner != address(0), "ERC20: approve from the zero address");
-        require(spender != address(0), "ERC20: approve to the zero address");
+        require(owner != address(0), 'ERC20: approve from the zero address');
+        require(spender != address(0), 'ERC20: approve to the zero address');
 
         Erc20Storage(additionalStorages[0]).updateAllowance(owner, spender, amount);
         emit Approval(owner, spender, amount);

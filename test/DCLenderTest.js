@@ -5,7 +5,7 @@ const {
 } = require('@openzeppelin/test-helpers');
 const { BN } = require('@openzeppelin/test-helpers/src/setup');
 require('chai').should();
-const { soliditySha3 } = require("web3-utils");
+const { soliditySha3 } = require('web3-utils');
 
 const Proxy = artifacts.require('Proxy');
 const PrimaryStorage = artifacts.require('PrimaryStorage');
