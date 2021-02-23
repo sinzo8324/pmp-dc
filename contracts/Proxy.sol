@@ -5,27 +5,23 @@ pragma solidity ^0.6.12;
 
 import 'openzeppelin-solidity/contracts/access/AccessControl.sol';
 import 'openzeppelin-solidity/contracts/utils/Pausable.sol';
-import './PrimaryStorage.sol';
+import './EternalStorage.sol';
 
-contract Proxy is AccessControl, Pausable {
-    address public primaryStorage;
-    address[] public additionalStorages;
+contract Proxy is AccessControl, Pausable, EternalStorage {
+    bytes32 public constant TYPE_OPERATOR = 0x9fcbc028a398b1c2b359b09bbe9cc6a31f9bdb6608fee74a6b53dedeeed8bb8f;
 
     modifier onlyOperator() {
-        require(hasRole(PrimaryStorage(primaryStorage).TYPE_OPERATOR(), _msgSender()), 'Caller is not the Operator');
+        require(hasRole(TYPE_OPERATOR, _msgSender()), 'Caller is not the Operator');
         _;
     }
 
-    constructor (address primaryStorageAddress) public {
-        primaryStorage = primaryStorageAddress;
-        bytes32 typeOperator = PrimaryStorage(primaryStorage).TYPE_OPERATOR();
-        _setRoleAdmin(typeOperator, typeOperator);
-        _setupRole(typeOperator, _msgSender());
-
+    constructor () public {
+        _setRoleAdmin(TYPE_OPERATOR, TYPE_OPERATOR);
+        _setupRole(TYPE_OPERATOR, _msgSender());
     }
 
     fallback() external {
-        address _impl = PrimaryStorage(primaryStorage).getLogicAddr();
+        address _impl = _implementation();
         require(_impl != address(0), 'Logic contract has not been registed yet');
 
         assembly {
@@ -38,24 +34,24 @@ contract Proxy is AccessControl, Pausable {
         }
     }
 
-    function addAdditionalStorage(address storageContractAddress) external onlyOperator {
-        additionalStorages.push(storageContractAddress);
-    }
-
-    function updateAdditionalStorage(uint256 index, address storageContractAddress) external onlyOperator {
-        additionalStorages[index] = storageContractAddress;
-    }
-
     function updateLogicContract(address logicContract, string calldata version) external onlyOperator {
-        PrimaryStorage(primaryStorage).setLogicContract(logicContract, version);
+        bytes32 key = keccak256(abi.encodePacked('implementation'));
+        set(key, logicContract);
+        key = keccak256(abi.encodePacked('version'));
+        set(key, version);
     }
 
-    function transferStorageOwnership(uint256 index, address target) external onlyOperator {
-        Ownable(additionalStorages[index]).transferOwnership(target);
+    function updateTokenDetails(string calldata inputName, string calldata inputSymbol, uint8 inputDecimals) external onlyOperator {
+        bytes32 key = keccak256(abi.encodePacked('name'));
+        set(key, inputName);
+        key = keccak256(abi.encodePacked('symbol'));
+        set(key, inputSymbol);
+        key = keccak256(abi.encodePacked('decimals'));
+        set(key, inputDecimals);
     }
 
     function addRoleType(bytes32 role) external onlyOperator {
-        _setRoleAdmin(role, PrimaryStorage(primaryStorage).TYPE_OPERATOR());
+        _setRoleAdmin(role, TYPE_OPERATOR);
     }
 
     function pause() external onlyOperator {
@@ -66,7 +62,10 @@ contract Proxy is AccessControl, Pausable {
         _unpause();
     }
 
-    function getStorageList() external view returns (address[] memory) {
-        return additionalStorages;
+    function _implementation() internal view returns (address) {
+        bytes32 key = keccak256(abi.encodePacked('implementation'));
+        address _impl = getAddressValue(key);
+        require(_impl != address(0), 'Logic contract has not been registed yet');
+        return _impl;
     }
 }

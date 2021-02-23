@@ -15,15 +15,13 @@ const { ecsign } = require('ethereumjs-util');
 require('chai').should();
 
 const Proxy = artifacts.require('Proxy');
-const PrimaryStorage = artifacts.require('PrimaryStorage');
-const Erc20Storage = artifacts.require('Erc20Storage');
 const Erc20Logic = artifacts.require('Erc20Logic');
 
 const testAccountPrivateKey = '0xFACDC25AB42FD449CA9CD505AAE912BBFF3F5B1880F70B3F63E1C733128032A7';
 const testAccount = web3.eth.accounts.privateKeyToAccount(testAccountPrivateKey).address;
 
 const version = '1';
-const chainId = '1';
+const chainId = '8888';
 const PERMIT_TYPEHASH = keccak256(
     toUtf8Bytes('Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)')
 );
@@ -65,14 +63,9 @@ async function getApprovalDigest(name, contractAddr, ownerAddr, spenderAddr, amo
 contract('Digital Currency', async ([operator, minter, burner, ...accounts]) => {
     before(async () => {
         this.erc20Logic = await Erc20Logic.new({ from: operator });
-        this.primaryStorage = await PrimaryStorage.new({ from: operator });
-        this.erc20Storage = await Erc20Storage.new();
-        this.erc20Proxy = await Proxy.new(this.primaryStorage.address, { from: operator });
+        this.erc20Proxy = await Proxy.new({ from: operator });
 
-        await this.primaryStorage.transferOwnership(this.erc20Proxy.address);
-        await this.erc20Storage.updateTokenDetails('Digital Currency', 'WON', '0', { from: operator });
-        await this.erc20Storage.transferOwnership(this.erc20Proxy.address, { from: operator });
-        await this.erc20Proxy.addAdditionalStorage(this.erc20Storage.address, { from: operator });
+        await this.erc20Proxy.updateTokenDetails('Digital Currency', 'WON', '0', { from: operator });
         await this.erc20Proxy.updateLogicContract(this.erc20Logic.address, version, { from: operator });
         await this.erc20Proxy.addRoleType(TYPE_MINTER, { from: operator });
         await this.erc20Proxy.addRoleType(TYPE_BURNER, { from: operator });

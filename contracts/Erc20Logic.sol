@@ -3,24 +3,32 @@
  */
 pragma solidity ^0.6.12;
 
-import './PrimaryStorage.sol';
-import './Erc20Storage.sol';
+import './EternalStorage.sol';
 import './IERC223Recipient.sol';
 import 'openzeppelin-solidity/contracts/access/AccessControl.sol';
 import 'openzeppelin-solidity/contracts/utils/Pausable.sol';
 import 'openzeppelin-solidity/contracts/token/ERC20/IERC20.sol';
 import 'openzeppelin-solidity/contracts/math/SafeMath.sol';
 
-contract Erc20Logic is AccessControl, Pausable, IERC20 {
+contract Erc20Logic is AccessControl, Pausable, EternalStorage, IERC20 {
     using SafeMath for uint256;
-    address public primaryStorage;
-    address[] public additionalStorages;
+
+    //keccak256('TYPE_MINTER')
+    bytes32 public constant TYPE_MINTER = 0xa8791d3acb7f4f152c41f3308e90b16e68a23666347d9c4c5ce8535dffead10d;
+    //keccak256('TYPE_BURNER')
+    bytes32 public constant TYPE_BURNER = 0x9a433df5d818859975655002918d19fe2ba4567432e52f0cec8426ddf4dc2ada;
+    // keccak256('Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)');
+    bytes32 public constant PERMIT_TYPE = 0x6e71edae12b1b97f4d1f60370fef10105fa2faae0126114a169c64845d6126c9;
+    //keccak256('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'),
+    bytes32 public constant EIP712_DOMAIN = 0x8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f;
+    uint256 public constant CHAINID = 8888;
 
     /**
      * @dev Returns the name of the token.
      */
     function name() external view returns (string memory) {
-        return Erc20Storage(additionalStorages[0]).getName();
+        bytes32 key = keccak256(abi.encodePacked('name'));
+        return getStringValue(key);
     }
 
     /**
@@ -28,7 +36,8 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
      * name.
      */
     function symbol() external view returns (string memory) {
-        return Erc20Storage(additionalStorages[0]).getSymbol();
+        bytes32 key = keccak256(abi.encodePacked('symbol'));
+        return getStringValue(key);
     }
 
     /**
@@ -45,21 +54,24 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
      * {IERC20-balanceOf} and {IERC20-transfer}.
      */
     function decimals() external view returns (uint8) {
-        return Erc20Storage(additionalStorages[0]).getDecimals();
+        bytes32 key = keccak256(abi.encodePacked('decimals'));
+        return uint8(getUintValue(key));
     }
 
     /**
      * @dev See {IERC20-totalSupply}.
      */
     function totalSupply() public view override returns (uint256) {
-        return Erc20Storage(additionalStorages[0]).getTotalSupply();
+        bytes32 key = keccak256(abi.encodePacked('totalSupply'));
+        return getUintValue(key);
     }
 
     /**
      * @dev See {IERC20-balanceOf}.
      */
     function balanceOf(address account) public view override returns (uint256) {
-        return Erc20Storage(additionalStorages[0]).getBalance(account);
+        bytes32 key = keccak256(abi.encodePacked('balance', account));
+        return getUintValue(key);
     }
 
     /**
@@ -79,7 +91,8 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
      * @dev See {IERC20-allowance}.
      */
     function allowance(address owner, address spender) public view override returns (uint256) {
-        return Erc20Storage(additionalStorages[0]).getAllowance(owner, spender);
+        bytes32 key = keccak256(abi.encodePacked('allowance', owner, spender));
+        return getUintValue(key);
     }
 
     /**
@@ -108,7 +121,7 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
      */
     function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
         _transfer(sender, recipient, amount);
-        uint256 allowances = Erc20Storage(additionalStorages[0]).getAllowance(sender, _msgSender());
+        uint256 allowances = allowance(sender, _msgSender());
         _approve(sender, _msgSender(), allowances.sub(amount, 'ERC20: transfer amount exceeds allowance'));
         return true;
     }
@@ -126,7 +139,7 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
      * - `spender` cannot be the zero address.
      */
     function increaseAllowance(address spender, uint256 addedValue) public returns (bool) {
-        uint256 allowances = Erc20Storage(additionalStorages[0]).getAllowance(_msgSender(), spender);
+        uint256 allowances = allowance(_msgSender(), spender);
         _approve(_msgSender(), spender, allowances.add(addedValue));
         return true;
     }
@@ -146,58 +159,65 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
      * `subtractedValue`.
      */
     function decreaseAllowance(address spender, uint256 subtractedValue) public returns (bool) {
-        uint256 allowances = Erc20Storage(additionalStorages[0]).getAllowance(_msgSender(), spender);
+        uint256 allowances = allowance(_msgSender(), spender);
         _approve(_msgSender(), spender, allowances.sub(subtractedValue, 'ERC20: decreased allowance below zero'));
         return true;
     }
 
     function issue(address tokenHolder, uint256 value) external {
-        require(hasRole(Erc20Storage(additionalStorages[0]).TYPE_MINTER(), _msgSender()), 'Caller is not the Minter');
+        require(hasRole(TYPE_MINTER, _msgSender()), 'Caller is not the Minter');
         require(value != 0,  'Can not mint zero amount');
         _mint(tokenHolder, value);
     }
 
     function redeem(address tokenHolder, uint256 value) external {
-        require(hasRole(Erc20Storage(additionalStorages[0]).TYPE_BURNER(), _msgSender()), 'Caller is not the Burner');
+        require(hasRole(TYPE_BURNER, _msgSender()), 'Caller is not the Burner');
         require(value != 0,  'Can not redeem zero amount');
         _burn(tokenHolder, value);
     }
 
     // EIP - 2612
     function nonces(address owner) external view returns (uint256) {
-        return Erc20Storage(additionalStorages[0]).getNonce(owner);
+        bytes32 key = keccak256(abi.encodePacked('nonce', owner));
+        return getUintValue(key);
     }
 
     function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external {
         require(deadline >= block.timestamp, 'Erc20Logic: EXPIRED');
 
-        uint256 chainId;
-        bytes32 permitTypeHash = Erc20Storage(additionalStorages[0]).PERMIT_TYPE();
-        bytes32 eip712Domain = Erc20Storage(additionalStorages[0]).EIP712_DOMAIN();
+        bytes32 key = keccak256(abi.encodePacked('name'));
+        string memory _name = getStringValue(key);
 
-        assembly { chainId := chainid() }
+        key = keccak256(abi.encodePacked('version'));
+        string memory _version = getStringValue(key);
 
         bytes32 domainSeparator = keccak256(
             abi.encode(
-                eip712Domain,
-                keccak256(bytes(Erc20Storage(additionalStorages[0]).getName())),
-                keccak256(bytes(PrimaryStorage(primaryStorage).getVersion())),
-                chainId,
+                EIP712_DOMAIN,
+                keccak256(bytes(_name)),
+                keccak256(bytes(_version)),
+                CHAINID,
                 address(this)
                 )
         );
-        uint256 nonce = Erc20Storage(additionalStorages[0]).getNonce(owner);
+
+        key = keccak256(abi.encodePacked('nonce', owner));
+        uint256 nonce = getUintValue(key);
+
         bytes32 digest = keccak256(
             abi.encodePacked(
                 '\x19\x01',
                 domainSeparator,
-                keccak256(abi.encode(permitTypeHash, owner, spender, value, nonce, deadline))
+                keccak256(abi.encode(PERMIT_TYPE, owner, spender, value, nonce, deadline))
             )
         );
 
         address recoveredAddress = ecrecover(digest, v, r, s);
         require(recoveredAddress != address(0) && recoveredAddress == owner, 'Erc20Logic: INVALID_SIGNATURE');
-        Erc20Storage(additionalStorages[0]).increaseNonce(owner);
+
+        nonce = nonce.add(1);
+        set(key, nonce);
+
         _approve(owner, spender, value);
     }
 
@@ -220,12 +240,14 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
         require(recipient != address(0), 'ERC20: transfer to the zero address');
 
         _beforeTokenTransfer(sender, recipient, amount);
-        uint256 senderBalance = Erc20Storage(additionalStorages[0]).getBalance(sender);
-        uint256 recipientBalance = Erc20Storage(additionalStorages[0]).getBalance(recipient);
+
+        uint256 senderBalance = balanceOf(sender);
+        uint256 recipientBalance = balanceOf(recipient);
         senderBalance = senderBalance.sub(amount, 'ERC20: transfer amount exceeds balance');
         recipientBalance = recipientBalance.add(amount);
-        Erc20Storage(additionalStorages[0]).updateBalance(sender, senderBalance);
-        Erc20Storage(additionalStorages[0]).updateBalance(recipient, recipientBalance);
+
+        _setBalance(sender, senderBalance);
+        _setBalance(recipient, recipientBalance);
 
         if(Address.isContract(recipient)) {
             IERC223Recipient(recipient).tokenFallback(sender, amount, '');
@@ -247,14 +269,15 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
         require(account != address(0), 'ERC20: mint to the zero address');
 
         _beforeTokenTransfer(address(0), account, amount);
-        uint256 currentTotalSupply = Erc20Storage(additionalStorages[0]).getTotalSupply();
-        uint256 targetBalance = Erc20Storage(additionalStorages[0]).getBalance(account);
+        uint256 currentTotalSupply = totalSupply();
+        uint256 targetBalance = balanceOf(account);
 
         currentTotalSupply = currentTotalSupply.add(amount);
         targetBalance = targetBalance.add(amount);
 
-        Erc20Storage(additionalStorages[0]).updateTotalSupply(currentTotalSupply);
-        Erc20Storage(additionalStorages[0]).updateBalance(account, targetBalance);
+        bytes32 key = keccak256(abi.encodePacked('totalSupply'));
+        set(key, currentTotalSupply);
+        _setBalance(account, targetBalance);
 
         if(Address.isContract(account)) {
             IERC223Recipient(account).tokenFallback(address(0), amount, '');
@@ -279,14 +302,15 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
 
         _beforeTokenTransfer(account, address(0), amount);
 
-        uint256 currentTotalSupply = Erc20Storage(additionalStorages[0]).getTotalSupply();
-        uint256 targetBalance = Erc20Storage(additionalStorages[0]).getBalance(account);
+        uint256 currentTotalSupply = totalSupply();
+        uint256 targetBalance = balanceOf(account);
 
         targetBalance = targetBalance.sub(amount, 'ERC20: burn amount exceeds balance');
         currentTotalSupply = currentTotalSupply.sub(amount);
 
-        Erc20Storage(additionalStorages[0]).updateTotalSupply(currentTotalSupply);
-        Erc20Storage(additionalStorages[0]).updateBalance(account, targetBalance);
+        bytes32 key = keccak256(abi.encodePacked('totalSupply'));
+        set(key, currentTotalSupply);
+        _setBalance(account, targetBalance);
 
         emit Transfer(account, address(0), amount);
     }
@@ -308,7 +332,8 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
         require(owner != address(0), 'ERC20: approve from the zero address');
         require(spender != address(0), 'ERC20: approve to the zero address');
 
-        Erc20Storage(additionalStorages[0]).updateAllowance(owner, spender, amount);
+        bytes32 key = keccak256(abi.encodePacked('allowance', owner, spender));
+        set(key, amount);
         emit Approval(owner, spender, amount);
     }
 
@@ -332,4 +357,10 @@ contract Erc20Logic is AccessControl, Pausable, IERC20 {
         to;
         amount;
     }
+
+    function _setBalance(address target, uint256 amount) internal {
+        bytes32 key = keccak256(abi.encodePacked('balance', target));
+        set(key, amount);
+    }
+
 }

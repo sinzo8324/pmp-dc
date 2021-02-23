@@ -8,8 +8,6 @@ require('chai').should();
 const { soliditySha3 } = require('web3-utils');
 
 const Proxy = artifacts.require('Proxy');
-const PrimaryStorage = artifacts.require('PrimaryStorage');
-const Erc20Storage = artifacts.require('Erc20Storage');
 const Erc20Logic = artifacts.require('Erc20Logic');
 const DCLender = artifacts.require('DCLender');
 
@@ -21,15 +19,10 @@ const version = '1';
 contract('DCLender', accounts => {
     before(async () => {
         this.erc20Logic = await Erc20Logic.new();
-        this.primaryStorage = await PrimaryStorage.new();
-        this.erc20Proxy = await Proxy.new(this.primaryStorage.address);
-        this.erc20Storage = await Erc20Storage.new();
+        this.erc20Proxy = await Proxy.new();
         this.dcLender = await DCLender.new();
 
-        await this.primaryStorage.transferOwnership(this.erc20Proxy.address);
-        await this.erc20Storage.updateTokenDetails('Digital Currency', 'WON', '0');
-        await this.erc20Storage.transferOwnership(this.erc20Proxy.address);
-        await this.erc20Proxy.addAdditionalStorage(this.erc20Storage.address);
+        await this.erc20Proxy.updateTokenDetails('Digital Currency', 'WON', '0');
         await this.erc20Proxy.updateLogicContract(this.erc20Logic.address, version);
         await this.erc20Proxy.addRoleType(TYPE_MINTER);
         await this.erc20Proxy.addRoleType(TYPE_BURNER);
