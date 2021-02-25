@@ -3,7 +3,7 @@
  */
 pragma solidity ^0.6.12;
 
-contract EternalStorage {
+abstract contract EternalStorage {
     mapping(bytes32 => uint256) internal _uintStorage;
     mapping(bytes32 => string) internal _stringStorage;
     mapping(bytes32 => address) internal _addressStorage;

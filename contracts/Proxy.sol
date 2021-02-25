@@ -41,6 +41,15 @@ contract Proxy is AccessControl, Pausable, EternalStorage {
         set(key, version);
     }
 
+    function getVersion() external view returns (string memory) {
+        bytes32 key = keccak256(abi.encodePacked('version'));
+        return getStringValue(key);
+    }
+
+    function getLogicContractAddress() external view returns (address) {
+        return _implementation();
+    }
+
     function updateTokenDetails(string calldata inputName, string calldata inputSymbol, uint8 inputDecimals) external onlyOperator {
         bytes32 key = keccak256(abi.encodePacked('name'));
         set(key, inputName);
