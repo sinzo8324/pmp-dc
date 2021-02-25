@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: UNLICENSED
  */
-pragma solidity ^0.6.12;
+pragma solidity ^0.7.6;
 
 import 'openzeppelin-solidity/contracts/access/AccessControl.sol';
 import 'openzeppelin-solidity/contracts/utils/Pausable.sol';
@@ -15,7 +15,7 @@ contract Proxy is AccessControl, Pausable, EternalStorage {
         _;
     }
 
-    constructor () public {
+    constructor () {
         _setRoleAdmin(TYPE_OPERATOR, TYPE_OPERATOR);
         _setupRole(TYPE_OPERATOR, _msgSender());
     }

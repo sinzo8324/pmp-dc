@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: UNLICENSED
  */
-pragma solidity ^0.6.12;
+pragma solidity ^0.7.6;
 
 import 'openzeppelin-solidity/contracts/access/Ownable.sol';
 import 'openzeppelin-solidity/contracts/token/ERC20/IERC20.sol';
@@ -56,7 +56,7 @@ contract DCVault is Ownable, IERC223Recipient {
         require(IDCContract(dcContractAddress).transferFrom(source, address(this), amount), 'can not take DC from the account');
         bytes32 reqID = keccak256(abi.encodePacked(address(this), source, amount, requestCnt++));
         reqIDList.push(reqID);
-        pendingList[reqID] = PendingReq(source, amount, now);
+        pendingList[reqID] = PendingReq(source, amount, block.timestamp);
         totalLocked = totalLocked + amount;
         emit DCLocked(reqID, source, amount);
     }
@@ -107,7 +107,7 @@ contract DCVault is Ownable, IERC223Recipient {
 
     function cancelRequest(bytes32 requestID) external onlyOwner {
         require(pendingList[requestID].timestamp != 0, 'Invalid request ID');
-        require((pendingList[requestID].timestamp + GUARDTIME) < now, 'Request cannot be canceled during the guard time');
+        require((pendingList[requestID].timestamp + GUARDTIME) < block.timestamp, 'Request cannot be canceled during the guard time');
         address destination = pendingList[requestID].source;
         uint256 amount = pendingList[requestID].amount;
         // delete request
