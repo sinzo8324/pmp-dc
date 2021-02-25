@@ -5,6 +5,7 @@ const Web3 = require('web3');
 const TYPE_MINTER = '0xa8791d3acb7f4f152c41f3308e90b16e68a23666347d9c4c5ce8535dffead10d';
 const TYPE_BURNER = '0x9a433df5d818859975655002918d19fe2ba4567432e52f0cec8426ddf4dc2ada';
 const VERSION = '1';
+const LimitPerAccount = '2000000';
 
 async function deploy(contractName, input, web3, address) {
     try {
@@ -52,15 +53,12 @@ async function main() {
         const source = fs.readFileSync(path.join(__dirname, './accountInfo.json'));
         const accountInfo = JSON.parse(source);
         const erc20Logic = await deploy('Erc20Logic', null, web3, account.address);
-        const primaryStorage = await deploy('PrimaryStorage', null, web3, account.address);
-        const erc20Storage = await deploy('Erc20Storage', null, web3, account.address);
-        const proxy = await deploy('Proxy', [primaryStorage._address], web3, account.address);
+        const proxy = await deploy('Proxy', null, web3, account.address);
         const dcVault = await deploy('DCVault', null, web3, account.address);
+        const dcWallet = await deploy('DCWallet', null, web3, account.address);
+        const dcLender = await deploy('DCLender', null, web3, account.address);
 
-        await sendTransaction(web3, primaryStorage.methods.transferOwnership(proxy._address), account.address);
-        await sendTransaction(web3, erc20Storage.methods.updateTokenDetails('Digital Currency', 'WON', '0'), account.address);
-        await sendTransaction(web3, erc20Storage.methods.transferOwnership(proxy._address), account.address);
-        await sendTransaction(web3, proxy.methods.addAdditionalStorage(erc20Storage._address), account.address);
+        await sendTransaction(web3, proxy.methods.updateTokenDetails('Digital Currency', 'WON', '0'), account.address);
         await sendTransaction(web3, proxy.methods.updateLogicContract(erc20Logic._address, VERSION), account.address);
         await sendTransaction(web3, proxy.methods.addRoleType(TYPE_MINTER), account.address);
         await sendTransaction(web3, proxy.methods.addRoleType(TYPE_BURNER), account.address);
@@ -69,13 +67,18 @@ async function main() {
         await sendTransaction(web3, proxy.methods.grantRole(TYPE_BURNER, accountInfo.Burner), account.address);
         await sendTransaction(web3, proxy.methods.grantRole(TYPE_BURNER, dcVault._address), account.address);
         await sendTransaction(web3, dcVault.methods.setDCContractAddress(proxy._address), account.address);
+        await sendTransaction(web3, dcLender.methods.setLoanLimit(LimitPerAccount), account.address);
+        await sendTransaction(web3, dcLender.methods.setDCContract(proxy._address), account.address);
+        await sendTransaction(web3, dcWallet.methods.setDCContract(proxy._address), account.address);
+        await sendTransaction(web3, dcWallet.methods.setDCLenderContract(dcLender._address), account.address);
+        await sendTransaction(web3, dcWallet.methods.transferOwnership(accountInfo.WalletOwner), account.address);
 
         const deployResult = {
             Proxy: proxy._address,
-            PrimaryStorage: primaryStorage._address,
             Erc20Logic: erc20Logic._address,
-            Erc20Storage: erc20Storage._address,
-            DCVault: dcVault._address
+            DCVault: dcVault._address,
+            DCLender: dcLender._address,
+            DCWallet: dcWallet._address
         }
 
         const json = JSON.stringify(deployResult, null, 4);
