@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.7.6;
 
-import "../storages/AccessControl.sol";
 import "../storages/Pausable.sol";
 import '../libraries/Constants.sol';
+import '../libraries/LibAccessControl.sol';
 
 contract PausableFacet {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -67,8 +67,8 @@ contract PausableFacet {
         emit Unpaused(msg.sender);
     }
 
-    function hasRole(bytes32 role, address account) internal view returns (bool) {
-        AccessControl.AccessControlStorage storage fs = AccessControl.accessControlStorage();
+    function hasRole(bytes32 role, address account) public view returns (bool) {
+        LibAccessControl.AccessControlStorage storage fs = LibAccessControl.accessControlStorage();
         return fs.roles[role].members.contains(account);
     }
 

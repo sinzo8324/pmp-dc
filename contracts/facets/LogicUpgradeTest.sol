@@ -5,9 +5,9 @@ pragma solidity 0.7.6;
 
 import '../interfaces/IERC223Recipient.sol';
 import '../storages/Erc20.sol';
-import '../storages/AccessControl.sol';
 import '../storages/Pausable.sol';
 import '../libraries/Constants.sol';
+import '../libraries/LibAccessControl.sol';
 import 'openzeppelin-solidity/contracts/utils/Address.sol';
 import 'openzeppelin-solidity/contracts/token/ERC20/IERC20.sol';
 import 'openzeppelin-solidity/contracts/math/SafeMath.sol';
@@ -359,8 +359,8 @@ contract LogicUpgradeTest is IERC20 {
         amount;
     }
 
-    function hasRole(bytes32 role, address account) internal view returns (bool) {
-        AccessControl.AccessControlStorage storage fs = AccessControl.accessControlStorage();
+    function hasRole(bytes32 role, address account) public view returns (bool) {
+        LibAccessControl.AccessControlStorage storage fs = LibAccessControl.accessControlStorage();
         return fs.roles[role].members.contains(account);
     }
 }

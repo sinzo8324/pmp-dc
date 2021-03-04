@@ -4,6 +4,7 @@
 pragma solidity 0.7.6;
 pragma experimental ABIEncoderV2;
 
+import './libraries/Constants.sol';
 import "./libraries/LibDiamond.sol";
 import "./libraries/LibAccessControl.sol";
 import "./interfaces/IDiamondLoupe.sol";
@@ -14,18 +15,14 @@ contract Diamond {
     constructor(IDiamondCut.FacetCut[] memory _diamondCut) payable {
         LibDiamond.diamondCut(_diamondCut, address(0), new bytes(0));
 
-        LibAccessControl._setRoleAdmin(LibAccessControl.TYPE_OPERATOR, LibAccessControl.TYPE_OPERATOR);
-        LibAccessControl._setupRole(LibAccessControl.TYPE_OPERATOR, msg.sender);
+        LibAccessControl._setRoleAdmin(Constants.TYPE_OPERATOR, Constants.TYPE_OPERATOR);
+        LibAccessControl._grantRole(Constants.TYPE_OPERATOR, msg.sender);
     }
 
     // Find facet for function that is called and execute the
     // function if a facet is found and return any value.
     fallback() external {
-        LibDiamond.DiamondStorage storage ds;
-        bytes32 position = LibDiamond.DIAMOND_STORAGE_POSITION;
-        assembly {
-            ds.slot := position
-        }
+        LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
         address facet = address(bytes20(ds.facetAddressAndSelectorPosition[msg.sig].facetAddress));
         require(facet != address(0), "Diamond: Function does not exist");
         assembly {
