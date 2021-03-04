@@ -5,9 +5,9 @@ pragma solidity ^0.7.6;
 
 import 'openzeppelin-solidity/contracts/access/Ownable.sol';
 import 'openzeppelin-solidity/contracts/token/ERC20/IERC20.sol';
-import './IDCContract.sol';
-import './IERC223Recipient.sol';
-import './RequestListLib.sol';
+import './interfaces/IDCContract.sol';
+import './interfaces/IERC223Recipient.sol';
+import './libraries/RequestListLib.sol';
 
 contract DCVault is Ownable, IERC223Recipient {
     using RequestListLib for RequestListLib.RequestIDList;

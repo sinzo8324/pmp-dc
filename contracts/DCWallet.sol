@@ -3,7 +3,7 @@
  */
 pragma solidity ^0.7.6;
 
-import './IERC223Recipient.sol';
+import './interfaces/IERC223Recipient.sol';
 import './DCLender.sol';
 import 'openzeppelin-solidity/contracts/access/Ownable.sol';
 import 'openzeppelin-solidity/contracts/token/ERC20/IERC20.sol';

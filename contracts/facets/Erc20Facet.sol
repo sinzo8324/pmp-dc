@@ -1,43 +1,53 @@
 /*
  * SPDX-License-Identifier: UNLICENSED
  */
-pragma solidity ^0.7.6;
+pragma solidity 0.7.6;
 
-import './EternalStorage.sol';
-import './IERC223Recipient.sol';
-import 'openzeppelin-solidity/contracts/access/AccessControl.sol';
-import 'openzeppelin-solidity/contracts/utils/Pausable.sol';
+import '../interfaces/IERC223Recipient.sol';
+import '../storages/Erc20.sol';
+import '../storages/AccessControl.sol';
+import '../storages/Pausable.sol';
+import '../libraries/Constants.sol';
+import 'openzeppelin-solidity/contracts/utils/Address.sol';
 import 'openzeppelin-solidity/contracts/token/ERC20/IERC20.sol';
 import 'openzeppelin-solidity/contracts/math/SafeMath.sol';
 
-contract LogicUpgradeTest is AccessControl, Pausable, EternalStorage, IERC20 {
+contract Erc20Facet is IERC20 {
     using SafeMath for uint256;
+    using Address for address;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
-    //keccak256('TYPE_MINTER')
-    bytes32 public constant TYPE_MINTER = 0xa8791d3acb7f4f152c41f3308e90b16e68a23666347d9c4c5ce8535dffead10d;
-    //keccak256('TYPE_BURNER')
-    bytes32 public constant TYPE_BURNER = 0x9a433df5d818859975655002918d19fe2ba4567432e52f0cec8426ddf4dc2ada;
-    // keccak256('Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)');
-    // bytes32 public constant PERMIT_TYPE = 0x6e71edae12b1b97f4d1f60370fef10105fa2faae0126114a169c64845d6126c9;
-    //keccak256('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'),
-    // bytes32 public constant EIP712_DOMAIN = 0x8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f;
-    // uint256 public constant CHAINID = 8888;
+    function setVersion(string calldata _version) external {
+        require(hasRole(Constants.TYPE_OPERATOR, msg.sender), 'Caller is not the Operator');
+        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        fs.version = _version;
+    }
+
+    function updateTokenDetails(string calldata _name, string calldata  _symbol, uint8 _decimals) external {
+        require(hasRole(Constants.TYPE_OPERATOR, msg.sender), 'Caller is not the Operator');
+
+        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+
+        fs.symbol = _symbol;
+        fs.name = _name;
+        fs.decimals = _decimals;
+    }
 
     /**
      * @dev Returns the name of the token.
      */
     function name() external view returns (string memory) {
-        bytes32 key = keccak256(abi.encodePacked('name'));
-        return getStringValue(key);
+        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        return fs.name;
     }
 
     /**
      * @dev Returns the symbol of the token, usually a shorter version of the
-     * name.
+     * name. 
      */
     function symbol() external view returns (string memory) {
-        bytes32 key = keccak256(abi.encodePacked('symbol'));
-        return getStringValue(key);
+        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        return fs.symbol;
     }
 
     /**
@@ -54,24 +64,24 @@ contract LogicUpgradeTest is AccessControl, Pausable, EternalStorage, IERC20 {
      * {IERC20-balanceOf} and {IERC20-transfer}.
      */
     function decimals() external view returns (uint8) {
-        bytes32 key = keccak256(abi.encodePacked('decimals'));
-        return uint8(getUintValue(key));
+        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        return fs.decimals;
     }
 
     /**
      * @dev See {IERC20-totalSupply}.
      */
     function totalSupply() public view override returns (uint256) {
-        bytes32 key = keccak256(abi.encodePacked('totalSupply'));
-        return getUintValue(key);
+        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        return fs.totalSupply;
     }
 
     /**
      * @dev See {IERC20-balanceOf}.
      */
     function balanceOf(address account) public view override returns (uint256) {
-        bytes32 key = keccak256(abi.encodePacked('balance', account));
-        return getUintValue(key);
+        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        return fs.balances[account];
     }
 
     /**
@@ -83,7 +93,7 @@ contract LogicUpgradeTest is AccessControl, Pausable, EternalStorage, IERC20 {
      * - the caller must have a balance of at least `amount`.
      */
     function transfer(address recipient, uint256 amount) public override returns (bool) {
-        _transfer(_msgSender(), recipient, amount);
+        _transfer(msg.sender, recipient, amount);
         return true;
     }
 
@@ -91,8 +101,8 @@ contract LogicUpgradeTest is AccessControl, Pausable, EternalStorage, IERC20 {
      * @dev See {IERC20-allowance}.
      */
     function allowance(address owner, address spender) public view override returns (uint256) {
-        bytes32 key = keccak256(abi.encodePacked('allowance', owner, spender));
-        return getUintValue(key);
+        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        return fs.allowances[owner][spender];
     }
 
     /**
@@ -103,7 +113,7 @@ contract LogicUpgradeTest is AccessControl, Pausable, EternalStorage, IERC20 {
      * - `spender` cannot be the zero address.
      */
     function approve(address spender, uint256 amount) public override returns (bool) {
-        _approve(_msgSender(), spender, amount);
+        _approve(msg.sender, spender, amount);
         return true;
     }
 
@@ -121,8 +131,8 @@ contract LogicUpgradeTest is AccessControl, Pausable, EternalStorage, IERC20 {
      */
     function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
         _transfer(sender, recipient, amount);
-        uint256 allowances = allowance(sender, _msgSender());
-        _approve(sender, _msgSender(), allowances.sub(amount, 'ERC20: transfer amount exceeds allowance'));
+        uint256 allowances = allowance(sender, msg.sender);
+        _approve(sender, msg.sender, allowances.sub(amount, 'ERC20: transfer amount exceeds allowance'));
         return true;
     }
 
@@ -139,8 +149,8 @@ contract LogicUpgradeTest is AccessControl, Pausable, EternalStorage, IERC20 {
      * - `spender` cannot be the zero address.
      */
     function increaseAllowance(address spender, uint256 addedValue) public returns (bool) {
-        uint256 allowances = allowance(_msgSender(), spender);
-        _approve(_msgSender(), spender, allowances.add(addedValue));
+        uint256 allowances = allowance(msg.sender, spender);
+        _approve(msg.sender, spender, allowances.add(addedValue));
         return true;
     }
 
@@ -159,67 +169,57 @@ contract LogicUpgradeTest is AccessControl, Pausable, EternalStorage, IERC20 {
      * `subtractedValue`.
      */
     function decreaseAllowance(address spender, uint256 subtractedValue) public returns (bool) {
-        uint256 allowances = allowance(_msgSender(), spender);
-        _approve(_msgSender(), spender, allowances.sub(subtractedValue, 'ERC20: decreased allowance below zero'));
+        uint256 allowances = allowance(msg.sender, spender);
+        _approve(msg.sender, spender, allowances.sub(subtractedValue, 'ERC20: decreased allowance below zero'));
         return true;
     }
 
     function issue(address tokenHolder, uint256 value) external {
-        require(hasRole(TYPE_MINTER, _msgSender()), 'Caller is not the Minter');
+        require(hasRole(Constants.TYPE_MINTER, msg.sender), 'Caller is not the Minter');
         require(value != 0,  'Can not mint zero amount');
         _mint(tokenHolder, value);
     }
 
     function redeem(address tokenHolder, uint256 value) external {
-        require(hasRole(TYPE_BURNER, _msgSender()), 'Caller is not the Burner');
+        require(hasRole(Constants.TYPE_BURNER, msg.sender), 'Caller is not the Burner');
         require(value != 0,  'Can not redeem zero amount');
         _burn(tokenHolder, value);
     }
 
     // EIP - 2612
-    // function nonces(address owner) external view returns (uint256) {
-    //     bytes32 key = keccak256(abi.encodePacked('nonce', owner));
-    //     return getUintValue(key);
-    // }
+    function nonces(address owner) external view returns (uint256) {
+        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        return fs.nonces[owner];
+    }
 
-    // function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external {
-    //     require(deadline >= block.timestamp, 'Erc20Logic: EXPIRED');
+    // Stack 사이즈 제한으로 인해 local variable의 개수를 최소화하였음.
+    function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external {
+        require(deadline >= block.timestamp, 'Erc20Facet: EXPIRED');
+        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
 
-    //     bytes32 key = keccak256(abi.encodePacked('name'));
-    //     string memory _name = getStringValue(key);
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                '\x19\x01',
+                keccak256(
+                    abi.encode(
+                        Constants.EIP712_DOMAIN,
+                        keccak256(bytes(fs.name)),
+                        keccak256(bytes(fs.version)),
+                        Constants.CHAINID,
+                        address(this)
+                    )
+                ),
+                keccak256(abi.encode(Constants.PERMIT_TYPE, owner, spender, value, fs.nonces[owner], deadline))
+            )
+        );
 
-    //     key = keccak256(abi.encodePacked('version'));
-    //     string memory _version = getStringValue(key);
+        address recoveredAddress = ecrecover(digest, v, r, s);
+        require(recoveredAddress != address(0) && recoveredAddress == owner, 'Erc20Facet: INVALID_SIGNATURE');
 
-    //     bytes32 domainSeparator = keccak256(
-    //         abi.encode(
-    //             EIP712_DOMAIN,
-    //             keccak256(bytes(_name)),
-    //             keccak256(bytes(_version)),
-    //             CHAINID,
-    //             address(this)
-    //             )
-    //     );
+        fs.nonces[owner] = fs.nonces[owner].add(1);
 
-    //     key = keccak256(abi.encodePacked('nonce', owner));
-    //     uint256 nonce = getUintValue(key);
-
-    //     bytes32 digest = keccak256(
-    //         abi.encodePacked(
-    //             '\x19\x01',
-    //             domainSeparator,
-    //             keccak256(abi.encode(PERMIT_TYPE, owner, spender, value, nonce, deadline))
-    //         )
-    //     );
-
-    //     address recoveredAddress = ecrecover(digest, v, r, s);
-    //     require(recoveredAddress != address(0) && recoveredAddress == owner, 'Erc20Logic: INVALID_SIGNATURE');
-
-    //     nonce = nonce.add(1);
-    //     set(key, nonce);
-
-    //     _approve(owner, spender, value);
-    // }
+        _approve(owner, spender, value);
+    }
 
     /**
      * @dev Moves tokens `amount` from `sender` to `recipient`.
@@ -240,14 +240,14 @@ contract LogicUpgradeTest is AccessControl, Pausable, EternalStorage, IERC20 {
         require(recipient != address(0), 'ERC20: transfer to the zero address');
 
         _beforeTokenTransfer(sender, recipient, amount);
-
-        uint256 senderBalance = balanceOf(sender);
-        uint256 recipientBalance = balanceOf(recipient);
+        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        uint256 senderBalance = fs.balances[sender];
+        uint256 recipientBalance = fs.balances[recipient];
         senderBalance = senderBalance.sub(amount, 'ERC20: transfer amount exceeds balance');
         recipientBalance = recipientBalance.add(amount);
 
-        _setBalance(sender, senderBalance);
-        _setBalance(recipient, recipientBalance);
+        fs.balances[sender] = senderBalance;
+        fs.balances[recipient] = recipientBalance;
 
         if(Address.isContract(recipient)) {
             IERC223Recipient(recipient).tokenFallback(sender, amount, '');
@@ -269,15 +269,15 @@ contract LogicUpgradeTest is AccessControl, Pausable, EternalStorage, IERC20 {
         require(account != address(0), 'ERC20: mint to the zero address');
 
         _beforeTokenTransfer(address(0), account, amount);
-        uint256 currentTotalSupply = totalSupply();
-        uint256 targetBalance = balanceOf(account);
+        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        uint256 currentTotalSupply = fs.totalSupply;
+        uint256 targetBalance = fs.balances[account];
 
         currentTotalSupply = currentTotalSupply.add(amount);
         targetBalance = targetBalance.add(amount);
 
-        bytes32 key = keccak256(abi.encodePacked('totalSupply'));
-        set(key, currentTotalSupply);
-        _setBalance(account, targetBalance);
+        fs.totalSupply = currentTotalSupply;
+        fs.balances[account] = targetBalance;
 
         if(Address.isContract(account)) {
             IERC223Recipient(account).tokenFallback(address(0), amount, '');
@@ -302,15 +302,15 @@ contract LogicUpgradeTest is AccessControl, Pausable, EternalStorage, IERC20 {
 
         _beforeTokenTransfer(account, address(0), amount);
 
-        uint256 currentTotalSupply = totalSupply();
-        uint256 targetBalance = balanceOf(account);
+        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        uint256 currentTotalSupply = fs.totalSupply;
+        uint256 targetBalance = fs.balances[account];
 
         targetBalance = targetBalance.sub(amount, 'ERC20: burn amount exceeds balance');
         currentTotalSupply = currentTotalSupply.sub(amount);
 
-        bytes32 key = keccak256(abi.encodePacked('totalSupply'));
-        set(key, currentTotalSupply);
-        _setBalance(account, targetBalance);
+        fs.totalSupply = currentTotalSupply;
+        fs.balances[account] = targetBalance;
 
         emit Transfer(account, address(0), amount);
     }
@@ -331,9 +331,9 @@ contract LogicUpgradeTest is AccessControl, Pausable, EternalStorage, IERC20 {
     function _approve(address owner, address spender, uint256 amount) internal {
         require(owner != address(0), 'ERC20: approve from the zero address');
         require(spender != address(0), 'ERC20: approve to the zero address');
-
-        bytes32 key = keccak256(abi.encodePacked('allowance', owner, spender));
-        set(key, amount);
+        
+        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        fs.allowances[owner][spender] = amount;
         emit Approval(owner, spender, amount);
     }
 
@@ -352,15 +352,15 @@ contract LogicUpgradeTest is AccessControl, Pausable, EternalStorage, IERC20 {
      * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
      */
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal view {
-        require(!paused(), 'Erc20Logic: token transfer while paused');
+        Pausable.PausableStorage storage fs = Pausable.pausableStorage();
+        require(!fs.paused, 'Erc20Facet: token transfer while paused');
         from;
         to;
         amount;
     }
 
-    function _setBalance(address target, uint256 amount) internal {
-        bytes32 key = keccak256(abi.encodePacked('balance', target));
-        set(key, amount);
+    function hasRole(bytes32 role, address account) internal view returns (bool) {
+        AccessControl.AccessControlStorage storage fs = AccessControl.accessControlStorage();
+        return fs.roles[role].members.contains(account);
     }
-
 }
