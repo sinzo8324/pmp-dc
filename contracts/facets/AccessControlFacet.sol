@@ -13,8 +13,7 @@ contract AccessControlFacet {
      * @dev Returns `true` if `account` has been granted `role`.
      */
     function hasRole(bytes32 role, address account) public view returns (bool) {
-        LibAccessControl.AccessControlStorage storage fs = LibAccessControl.accessControlStorage();
-        return fs.roles[role].members.contains(account);
+        return LibAccessControl._hasRole(role, account);
     }
 
     /**

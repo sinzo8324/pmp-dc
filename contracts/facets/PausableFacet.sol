@@ -6,8 +6,6 @@ import '../libraries/Constants.sol';
 import '../libraries/LibAccessControl.sol';
 
 contract PausableFacet {
-    using EnumerableSet for EnumerableSet.AddressSet;
-
     /**
      * @dev Emitted when the pause is triggered by `account`.
      */
@@ -68,8 +66,7 @@ contract PausableFacet {
     }
 
     function hasRole(bytes32 role, address account) public view returns (bool) {
-        LibAccessControl.AccessControlStorage storage fs = LibAccessControl.accessControlStorage();
-        return fs.roles[role].members.contains(account);
+        return LibAccessControl._hasRole(role, account);
     }
 
 }

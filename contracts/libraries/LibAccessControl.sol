@@ -52,6 +52,11 @@ library LibAccessControl {
         }
     }
 
+    function _hasRole(bytes32 role, address account) internal view returns (bool) {
+        AccessControlStorage storage fs = accessControlStorage();
+        return fs.roles[role].members.contains(account);
+    }
+
     /**
      * @dev Sets `adminRole` as ``role``'s admin role.
      *

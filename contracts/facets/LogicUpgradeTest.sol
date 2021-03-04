@@ -15,7 +15,6 @@ import 'openzeppelin-solidity/contracts/math/SafeMath.sol';
 contract LogicUpgradeTest is IERC20 {
     using SafeMath for uint256;
     using Address for address;
-    using EnumerableSet for EnumerableSet.AddressSet;
 
     function setVersion(string calldata _version) external {
         require(hasRole(Constants.TYPE_OPERATOR, msg.sender), 'Caller is not the Operator');
@@ -360,7 +359,6 @@ contract LogicUpgradeTest is IERC20 {
     }
 
     function hasRole(bytes32 role, address account) public view returns (bool) {
-        LibAccessControl.AccessControlStorage storage fs = LibAccessControl.accessControlStorage();
-        return fs.roles[role].members.contains(account);
+        return LibAccessControl._hasRole(role, account);
     }
 }

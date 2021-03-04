@@ -13,8 +13,6 @@ import '../libraries/LibAccessControl.sol';
 import '../libraries/Constants.sol';
 
 contract DiamondCutFacet is IDiamondCut {
-    using EnumerableSet for EnumerableSet.AddressSet;
-
     /// @notice Add/replace/remove any number of functions and optionally execute
     ///         a function with delegatecall
     /// @param _diamondCut Contains the facet addresses and function selectors
@@ -32,7 +30,6 @@ contract DiamondCutFacet is IDiamondCut {
     }
 
     function hasRole(bytes32 role, address account) internal view returns (bool) {
-        LibAccessControl.AccessControlStorage storage fs = LibAccessControl.accessControlStorage();
-        return fs.roles[role].members.contains(account);
+        return LibAccessControl._hasRole(role, account);
     }
 }
