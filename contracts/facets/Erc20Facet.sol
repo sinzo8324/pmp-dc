@@ -17,13 +17,13 @@ contract Erc20Facet is IERC20 {
     using Address for address;
 
     function setVersion(string calldata _version) external {
-        require(hasRole(Constants.TYPE_OPERATOR, msg.sender), 'Caller is not the Operator');
+        require(_hasRole(Constants.TYPE_OPERATOR, msg.sender), 'Caller is not the Operator');
         Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
         fs.version = _version;
     }
 
     function updateTokenDetails(string calldata _name, string calldata  _symbol, uint8 _decimals) external {
-        require(hasRole(Constants.TYPE_OPERATOR, msg.sender), 'Caller is not the Operator');
+        require(_hasRole(Constants.TYPE_OPERATOR, msg.sender), 'Caller is not the Operator');
 
         Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
 
@@ -174,13 +174,13 @@ contract Erc20Facet is IERC20 {
     }
 
     function issue(address tokenHolder, uint256 value) external {
-        require(hasRole(Constants.TYPE_MINTER, msg.sender), 'Caller is not the Minter');
+        require(_hasRole(Constants.TYPE_MINTER, msg.sender), 'Caller is not the Minter');
         require(value != 0,  'Can not mint zero amount');
         _mint(tokenHolder, value);
     }
 
     function redeem(address tokenHolder, uint256 value) external {
-        require(hasRole(Constants.TYPE_BURNER, msg.sender), 'Caller is not the Burner');
+        require(_hasRole(Constants.TYPE_BURNER, msg.sender), 'Caller is not the Burner');
         require(value != 0,  'Can not redeem zero amount');
         _burn(tokenHolder, value);
     }
@@ -358,7 +358,7 @@ contract Erc20Facet is IERC20 {
         amount;
     }
 
-    function hasRole(bytes32 role, address account) public view returns (bool) {
+    function _hasRole(bytes32 role, address account) internal view returns (bool) {
         return LibAccessControl._hasRole(role, account);
     }
 }

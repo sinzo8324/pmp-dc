@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.7.6;
 
-import "../storages/Pausable.sol";
+import '../storages/Pausable.sol';
 import '../libraries/Constants.sol';
 import '../libraries/LibAccessControl.sol';
 
@@ -17,7 +17,7 @@ contract PausableFacet {
     event Unpaused(address account);
 
     modifier onlyOperator() {
-        require(hasRole(Constants.TYPE_OPERATOR, msg.sender), 'Caller is not the Operator');
+        require(_hasRole(Constants.TYPE_OPERATOR, msg.sender), 'Caller is not the Operator');
         _;
     }
 
@@ -46,7 +46,7 @@ contract PausableFacet {
      */
     function _pause() internal {
         Pausable.PausableStorage storage fs = Pausable.pausableStorage();
-        require(fs.paused, "Pausable: paused");
+        require(fs.paused, 'Pausable: paused');
         fs.paused = true;
         emit Paused(msg.sender);
     }
@@ -60,12 +60,12 @@ contract PausableFacet {
      */
     function _unpause() internal {
         Pausable.PausableStorage storage fs = Pausable.pausableStorage();
-        require(fs.paused, "Pausable: not paused");
+        require(fs.paused, 'Pausable: not paused');
         fs.paused = false;
         emit Unpaused(msg.sender);
     }
 
-    function hasRole(bytes32 role, address account) public view returns (bool) {
+    function _hasRole(bytes32 role, address account) internal view returns (bool) {
         return LibAccessControl._hasRole(role, account);
     }
 

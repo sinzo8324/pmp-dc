@@ -15,8 +15,8 @@ library Constants {
     bytes32 constant EIP712_DOMAIN = 0x8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f;
     uint256 constant CHAINID = 8888;
 
-    bytes32 constant ACCESSCONTROL_STORAGE_POSITION = keccak256("diamond.standard.accesscontrol.facet.storage");
-    bytes32 constant DIAMOND_STORAGE_POSITION = keccak256("diamond.standard.diamond.storage");
-    bytes32 constant ERC20_STORAGE_POSITION = keccak256("diamond.standard.erc20.facet.storage");
-    bytes32 constant PAUSABLE_STORAGE_POSITION = keccak256("diamond.standard.pausable.facet.storage");
+    bytes32 constant ACCESSCONTROL_STORAGE_POSITION = keccak256('diamond.standard.accesscontrol.facet.storage');
+    bytes32 constant DIAMOND_STORAGE_POSITION = keccak256('diamond.standard.diamond.storage');
+    bytes32 constant ERC20_STORAGE_POSITION = keccak256('diamond.standard.erc20.facet.storage');
+    bytes32 constant PAUSABLE_STORAGE_POSITION = keccak256('diamond.standard.pausable.facet.storage');
 }

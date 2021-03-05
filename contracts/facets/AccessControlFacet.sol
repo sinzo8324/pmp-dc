@@ -3,7 +3,7 @@
  */
 pragma solidity 0.7.6;
 
-import "../libraries/LibAccessControl.sol";
+import '../libraries/LibAccessControl.sol';
 import '../libraries/Constants.sol';
 
 contract AccessControlFacet {
@@ -69,7 +69,7 @@ contract AccessControlFacet {
      * - the caller must have ``role``'s admin role.
      */
     function grantRole(bytes32 role, address account) public {
-        require(hasRole(getRoleAdmin(role), msg.sender), "AccessControl: sender must be an admin to grant");
+        require(hasRole(getRoleAdmin(role), msg.sender), 'AccessControl: sender must be an admin to grant');
         LibAccessControl._grantRole(role, account);
     }
 
@@ -83,7 +83,7 @@ contract AccessControlFacet {
      * - the caller must have ``role``'s admin role.
      */
     function revokeRole(bytes32 role, address account) public {
-        require(hasRole(getRoleAdmin(role), msg.sender), "AccessControl: sender must be an admin to revoke");
+        require(hasRole(getRoleAdmin(role), msg.sender), 'AccessControl: sender must be an admin to revoke');
         LibAccessControl._revokeRole(role, account);
     }
 
@@ -102,7 +102,7 @@ contract AccessControlFacet {
      * - the caller must be `account`.
      */
     function renounceRole(bytes32 role, address account) public {
-        require(account == msg.sender, "AccessControl: can only renounce roles for self");
+        require(account == msg.sender, 'AccessControl: can only renounce roles for self');
         LibAccessControl._revokeRole(role, account);
     }
 }

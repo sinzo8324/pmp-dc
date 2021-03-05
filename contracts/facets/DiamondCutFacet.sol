@@ -7,8 +7,8 @@ pragma experimental ABIEncoderV2;
 * EIP-2535 Diamond Standard: https://eips.ethereum.org/EIPS/eip-2535
 /******************************************************************************/
 
-import "../interfaces/IDiamondCut.sol";
-import "../libraries/LibDiamond.sol";
+import '../interfaces/IDiamondCut.sol';
+import '../libraries/LibDiamond.sol';
 import '../libraries/LibAccessControl.sol';
 import '../libraries/Constants.sol';
 
@@ -24,12 +24,12 @@ contract DiamondCutFacet is IDiamondCut {
         address _init,
         bytes calldata _calldata
     ) external override {
-        require(hasRole(Constants.TYPE_OPERATOR, msg.sender), 'Caller is not the Operator');
+        require(_hasRole(Constants.TYPE_OPERATOR, msg.sender), 'Caller is not the Operator');
         LibDiamond.diamondCut(_diamondCut, _init, _calldata);
         emit DiamondCut(_diamondCut, _init, _calldata);
     }
 
-    function hasRole(bytes32 role, address account) internal view returns (bool) {
+    function _hasRole(bytes32 role, address account) internal view returns (bool) {
         return LibAccessControl._hasRole(role, account);
     }
 }
