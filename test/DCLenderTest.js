@@ -7,32 +7,67 @@ const { BN } = require('@openzeppelin/test-helpers/src/setup');
 require('chai').should();
 const { soliditySha3 } = require('web3-utils');
 
-const Proxy = artifacts.require('Proxy');
-const Erc20Logic = artifacts.require('Erc20Logic');
+const AccessControlFacet = artifacts.require('AccessControlFacet');
+const DiamondCutFacet = artifacts.require('DiamondCutFacet');
+const DiamondLoupeFacet = artifacts.require('DiamondLoupeFacet');
+const Erc20Facet = artifacts.require('Erc20Facet');
+const PausableFacet = artifacts.require('PausableFacet');
+const DCInterface = artifacts.require('IDCContract');
+const Diamond = artifacts.require('Diamond');
 const DCLender = artifacts.require('DCLender');
 
 const TYPE_MINTER = soliditySha3('TYPE_MINTER');
 const TYPE_BURNER = soliditySha3('TYPE_BURNER');
 const LimitPerAccount = '2000000';
 const version = '1';
+const FacetCutAction = {
+    Add: 0,
+    Replace: 1,
+    Remove: 2
+}
+
+function getSelectors (contract) {
+    const selectors = contract.abi.reduce((acc, val) => {
+        if (val.type === 'function') {
+            acc.push(val.signature);
+            return acc;
+        } else {
+            return acc;
+        }
+    }, []);
+    return selectors;
+}
 
 contract('DCLender', accounts => {
     before(async () => {
-        this.erc20Logic = await Erc20Logic.new();
-        this.erc20Proxy = await Proxy.new();
-        this.dcLender = await DCLender.new();
+        this.accessControlFacet = await AccessControlFacet.new({ from: accounts[0] });
+        this.diamondCutFacet = await DiamondCutFacet.new({ from: accounts[0] });
+        this.diamondLoupeFacet = await DiamondLoupeFacet.new({ from: accounts[0] });
+        this.erc20Facet = await Erc20Facet.new({ from: accounts[0] });
+        this.pausableFacet = await PausableFacet.new({ from: accounts[0] });
+        this.dcLender = await DCLender.new({ from: accounts[0] });
 
-        await this.erc20Proxy.updateTokenDetails('Digital Currency', 'WON', '0');
-        await this.erc20Proxy.updateLogicContract(this.erc20Logic.address, version);
-        await this.erc20Proxy.addRoleType(TYPE_MINTER);
-        await this.erc20Proxy.addRoleType(TYPE_BURNER);
+        const diamondCut = [
+            [this.diamondCutFacet.address, FacetCutAction.Add, getSelectors(DiamondCutFacet)],
+            [this.diamondLoupeFacet.address, FacetCutAction.Add, getSelectors(DiamondLoupeFacet)],
+            [this.accessControlFacet.address, FacetCutAction.Add, getSelectors(AccessControlFacet)],
+            [this.erc20Facet.address, FacetCutAction.Add, getSelectors(Erc20Facet)],
+            [this.pausableFacet.address, FacetCutAction.Add, getSelectors(PausableFacet)],
+        ];
 
-        await this.dcLender.setLoanLimit(LimitPerAccount);
-        await this.dcLender.setDCContract(this.erc20Proxy.address);
+        this.diamond = await Diamond.new(diamondCut, { from: accounts[0] });
+        this.erc20Token = await DCInterface.at(this.diamond.address);
 
-        await this.erc20Proxy.grantRole(TYPE_MINTER, accounts[0], { from: accounts[0] });
-        await this.erc20Proxy.grantRole(TYPE_BURNER, accounts[0], { from: accounts[0] });
-        this.erc20Token = await Erc20Logic.at(this.erc20Proxy.address);
+        await this.erc20Token.updateTokenDetails('Digital Currency', 'WON', '0', { from: accounts[0] });
+        await this.erc20Token.setVersion(version, { from: accounts[0] });
+        await this.erc20Token.addRoleType(TYPE_MINTER, { from: accounts[0] });
+        await this.erc20Token.addRoleType(TYPE_BURNER, { from: accounts[0] });
+        await this.erc20Token.grantRole(TYPE_MINTER, accounts[0], { from: accounts[0] });
+        await this.erc20Token.grantRole(TYPE_BURNER, accounts[0], { from: accounts[0] });
+
+        await this.dcLender.setLoanLimit(LimitPerAccount, { from: accounts[0] });
+        await this.dcLender.setDCContract(this.erc20Token.address, { from: accounts[0] });
+
     });
 
     describe('setDCContract function', async () => {

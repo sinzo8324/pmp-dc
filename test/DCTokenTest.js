@@ -14,8 +14,13 @@ const {
 const { ecsign } = require('ethereumjs-util');
 require('chai').should();
 
-const Proxy = artifacts.require('Proxy');
-const Erc20Logic = artifacts.require('Erc20Logic');
+const AccessControlFacet = artifacts.require('AccessControlFacet');
+const DiamondCutFacet = artifacts.require('DiamondCutFacet');
+const DiamondLoupeFacet = artifacts.require('DiamondLoupeFacet');
+const Erc20Facet = artifacts.require('Erc20Facet');
+const PausableFacet = artifacts.require('PausableFacet');
+const DCInterface = artifacts.require('IDCContract');
+const Diamond = artifacts.require('Diamond');
 
 const testAccountPrivateKey = '0xFACDC25AB42FD449CA9CD505AAE912BBFF3F5B1880F70B3F63E1C733128032A7';
 const testAccount = web3.eth.accounts.privateKeyToAccount(testAccountPrivateKey).address;
@@ -27,6 +32,23 @@ const PERMIT_TYPEHASH = keccak256(
 );
 const TYPE_MINTER = keccak256(toUtf8Bytes('TYPE_MINTER'));
 const TYPE_BURNER = keccak256(toUtf8Bytes('TYPE_BURNER'));
+const FacetCutAction = {
+    Add: 0,
+    Replace: 1,
+    Remove: 2
+}
+
+function getSelectors (contract) {
+    const selectors = contract.abi.reduce((acc, val) => {
+        if (val.type === 'function') {
+            acc.push(val.signature);
+            return acc;
+        } else {
+            return acc;
+        }
+    }, []);
+    return selectors;
+}
 
 async function getDomainSeparator(name, tokenAddress) {
     return keccak256(
@@ -62,17 +84,29 @@ async function getApprovalDigest(name, contractAddr, ownerAddr, spenderAddr, amo
 
 contract('Digital Currency', async ([operator, minter, burner, ...accounts]) => {
     before(async () => {
-        this.erc20Logic = await Erc20Logic.new({ from: operator });
-        this.erc20Proxy = await Proxy.new({ from: operator });
+        this.accessControlFacet = await AccessControlFacet.new({ from: operator });
+        this.diamondCutFacet = await DiamondCutFacet.new({ from: operator });
+        this.diamondLoupeFacet = await DiamondLoupeFacet.new({ from: operator });
+        this.erc20Facet = await Erc20Facet.new({ from: operator });
+        this.pausableFacet = await PausableFacet.new({ from: operator });
 
-        await this.erc20Proxy.updateTokenDetails('Digital Currency', 'WON', '0', { from: operator });
-        await this.erc20Proxy.updateLogicContract(this.erc20Logic.address, version, { from: operator });
-        await this.erc20Proxy.addRoleType(TYPE_MINTER, { from: operator });
-        await this.erc20Proxy.addRoleType(TYPE_BURNER, { from: operator });
-        await this.erc20Proxy.grantRole(TYPE_MINTER, minter, { from: operator });
-        await this.erc20Proxy.grantRole(TYPE_BURNER, burner, { from: operator });
+        const diamondCut = [
+            [this.diamondCutFacet.address, FacetCutAction.Add, getSelectors(DiamondCutFacet)],
+            [this.diamondLoupeFacet.address, FacetCutAction.Add, getSelectors(DiamondLoupeFacet)],
+            [this.accessControlFacet.address, FacetCutAction.Add, getSelectors(AccessControlFacet)],
+            [this.erc20Facet.address, FacetCutAction.Add, getSelectors(Erc20Facet)],
+            [this.pausableFacet.address, FacetCutAction.Add, getSelectors(PausableFacet)],
+        ];
 
-        this.erc20Token = await Erc20Logic.at(this.erc20Proxy.address);
+        this.diamond = await Diamond.new(diamondCut, { from: operator });
+        this.erc20Token = await DCInterface.at(this.diamond.address);
+
+        await this.erc20Token.updateTokenDetails('Digital Currency', 'WON', '0', { from: operator });
+        await this.erc20Token.setVersion(version, { from: operator });
+        await this.erc20Token.addRoleType(TYPE_MINTER, { from: operator });
+        await this.erc20Token.addRoleType(TYPE_BURNER, { from: operator });
+        await this.erc20Token.grantRole(TYPE_MINTER, minter, { from: operator });
+        await this.erc20Token.grantRole(TYPE_BURNER, burner, { from: operator });
     });
 
     describe('Check token details', async () => {
@@ -158,19 +192,19 @@ contract('Digital Currency', async ([operator, minter, burner, ...accounts]) => 
     describe('pause function', async () => {
         it('only Operator can pause the contract', async () => {
             await expectRevert(
-                this.erc20Proxy.pause({ from: accounts[0] }),
+                this.erc20Token.pause({ from: accounts[0] }),
                 'Caller is not the Operator'
             );
         });
         it('Paused event should be emit if the contract is paused', async () => {
-            const receipt = await this.erc20Proxy.pause({ from: operator });
+            const receipt = await this.erc20Token.pause({ from: operator });
             expectEvent(receipt, 'Paused', {
                 account: operator,
             });
         });
         it('can not pause if the state of the contract paused', async () => {
             await expectRevert(
-                this.erc20Proxy.pause({ from: operator }),
+                this.erc20Token.pause({ from: operator }),
                 'Pausable: paused'
             );
         });
@@ -178,19 +212,19 @@ contract('Digital Currency', async ([operator, minter, burner, ...accounts]) => 
     describe('unpause function', async () => {
         it('only Operator can unpause the contract', async () => {
             await expectRevert(
-                this.erc20Proxy.unpause({ from: accounts[0] }),
+                this.erc20Token.unpause({ from: accounts[0] }),
                 'Caller is not the Operator'
             );
         });
         it('Unpaused event should be emit if the contract is unpaused', async () => {
-            const receipt = await this.erc20Proxy.unpause({ from: operator });
+            const receipt = await this.erc20Token.unpause({ from: operator });
             expectEvent(receipt, 'Unpaused', {
                 account: operator,
             });
         });
         it('can not unpause if the state of the contract unpaused', async () => {
             await expectRevert(
-                this.erc20Proxy.unpause({ from: operator }),
+                this.erc20Token.unpause({ from: operator }),
                 'Pausable: not paused'
             );
         });
@@ -209,7 +243,7 @@ contract('Digital Currency', async ([operator, minter, burner, ...accounts]) => 
 
             await expectRevert(
                 this.erc20Token.permit(testAccount, accounts[0], '1000', deadline, v, hexlify(r), hexlify(s)),
-                'Erc20Logic: EXPIRED'
+                'Erc20Facet: EXPIRED'
             );
         });
         it('Signature should be matched with input data', async () => {
@@ -224,7 +258,7 @@ contract('Digital Currency', async ([operator, minter, burner, ...accounts]) => 
 
             await expectRevert(
                 this.erc20Token.permit(testAccount, accounts[0], '1000', deadline, v, hexlify(r), hexlify(s)),
-                'Erc20Logic: INVALID_SIGNATURE'
+                'Erc20Facet: INVALID_SIGNATURE'
             );
         });
         it('Approve event should be emitted after signature verified successfully', async () => {
