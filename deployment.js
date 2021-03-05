@@ -21,8 +21,8 @@ async function deploy(contractName, input, web3, address) {
         let gas;
         let result;
         if(input !== null) {
-            gas = await contractToDeploy.deploy({data: contract.bytecode, arguments: [input]}).estimateGas({from: address});
-            result = await contractToDeploy.deploy({data: contract.bytecode, arguments: [input]}).send({from: address, gas: gas, nonce: nonce});
+            gas = await contractToDeploy.deploy({data: contract.bytecode, arguments: input}).estimateGas({from: address});
+            result = await contractToDeploy.deploy({data: contract.bytecode, arguments: input}).send({from: address, gas: gas, nonce: nonce});
         } else {
             gas = await contractToDeploy.deploy({data: contract.bytecode}).estimateGas({from: address});
             result = await contractToDeploy.deploy({data: contract.bytecode}).send({from: address, gas: gas, nonce: nonce});
@@ -82,7 +82,7 @@ async function main() {
             [erc20Facet._address, FacetCutAction.Add, getSelectors(erc20Facet)],
             [pausableFacet._address, FacetCutAction.Add, getSelectors(pausableFacet)],
         ];
-        const diamond = await deploy('Diamond', diamondCut, web3, account.address);
+        const diamond = await deploy('Diamond', [diamondCut], web3, account.address);
 
         const dcVault = await deploy('DCVault', null, web3, account.address);
         const dcWallet = await deploy('DCWallet', null, web3, account.address);
