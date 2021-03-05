@@ -41,4 +41,12 @@ interface IDCContract is IDiamondCut, IDiamondLoupe {
     function pause() external;
     function unpause() external;
     function paused() external view returns (bool);
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    event Paused(address account);
+    event Unpaused(address account);
+    event RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole);
+    event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender);
+    event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender);
 }

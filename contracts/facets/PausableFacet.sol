@@ -46,7 +46,7 @@ contract PausableFacet {
      */
     function _pause() internal {
         Pausable.PausableStorage storage fs = Pausable.pausableStorage();
-        require(fs.paused, 'Pausable: paused');
+        require(!fs.paused, 'Pausable: paused');
         fs.paused = true;
         emit Paused(msg.sender);
     }
