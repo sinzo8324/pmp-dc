@@ -376,4 +376,20 @@ contract('DCVault', accounts => {
             });
         });
     });
+    describe('Lock token by users', async () => {
+        it('Cannot lock 0 token', async () => {
+            await expectRevert(
+                this.erc20Token.transfer(this.dcVault.address, '0', { from: accounts[1] }),
+                'DCVault: Cannot receive 0 DC'
+            );
+        });
+        it('DCLocked event should be emitted after DCVault receives tokens successfully', async () => {
+            const receipt = await this.erc20Token.transfer(this.dcVault.address, '100', { from: accounts[1] });
+            const pastEvent = await this.dcVault.getPastEvents('DCLocked', {fromBlock: receipt.receipt.blockNumber, toBlock: receipt.receipt.blockNumber});
+            assert.equal(pastEvent[0].event, 'DCLocked');
+            assert.equal(pastEvent[0].args.requestID, generateRequestID(this.dcVault.address, accounts[1], '100', 7));
+            assert.equal(pastEvent[0].args.source, accounts[1]);
+            assert.equal(pastEvent[0].args.amount.toString(), '100');
+        });
+    });
 });

@@ -54,11 +54,6 @@ contract DCVault is Ownable, IERC223Recipient {
     function lockUpDC(address source, uint256 amount) public onlyOwner {
         require(amount !=0, 'amount cannot be zero');
         require(IDCContract(dcContractAddress).transferFrom(source, address(this), amount), 'can not take DC from the account');
-        bytes32 reqID = keccak256(abi.encodePacked(address(this), source, amount, requestCnt++));
-        reqIDList.push(reqID);
-        pendingList[reqID] = PendingReq(source, amount, block.timestamp);
-        totalLocked = totalLocked + amount;
-        emit DCLocked(reqID, source, amount);
     }
 
     function mintDCnLockUp(
@@ -120,9 +115,13 @@ contract DCVault is Ownable, IERC223Recipient {
 
     function tokenFallback(address from, uint256 value, bytes memory data) override external {
         require(_msgSender() == dcContractAddress, 'DCVault: Only DC Token Contract can use the function');
-        from;
-        value;
+        require(value != 0, 'DCVault: Cannot receive 0 DC');
         data;
+        bytes32 reqID = keccak256(abi.encodePacked(address(this), from, value, requestCnt++));
+        reqIDList.push(reqID);
+        pendingList[reqID] = PendingReq(from, value, block.timestamp);
+        totalLocked = totalLocked + value;
+        emit DCLocked(reqID, from, value);
     }
 
     // function unlockDC(address[] calldata destination, uint256[] calldata amount) external onlyOwner {
