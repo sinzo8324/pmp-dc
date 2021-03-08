@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.7.6;
 
-import '../storages/Pausable.sol';
+import '../storages/PausableStorage.sol';
 import '../libraries/Constants.sol';
 import '../libraries/LibAccessControl.sol';
 
@@ -33,7 +33,7 @@ contract PausableFacet {
      * @dev Returns true if the contract is paused, and false otherwise.
      */
     function paused() public view returns (bool) {
-        Pausable.PausableStorage storage fs = Pausable.pausableStorage();
+        PausableStorage.Storage storage fs = PausableStorage.getStorage();
         return fs.paused;
     }
 
@@ -45,7 +45,7 @@ contract PausableFacet {
      * - The contract must not be paused.
      */
     function _pause() internal {
-        Pausable.PausableStorage storage fs = Pausable.pausableStorage();
+        PausableStorage.Storage storage fs = PausableStorage.getStorage();
         require(!fs.paused, 'Pausable: paused');
         fs.paused = true;
         emit Paused(msg.sender);
@@ -59,7 +59,7 @@ contract PausableFacet {
      * - The contract must be paused.
      */
     function _unpause() internal {
-        Pausable.PausableStorage storage fs = Pausable.pausableStorage();
+        PausableStorage.Storage storage fs = PausableStorage.getStorage();
         require(fs.paused, 'Pausable: not paused');
         fs.paused = false;
         emit Unpaused(msg.sender);

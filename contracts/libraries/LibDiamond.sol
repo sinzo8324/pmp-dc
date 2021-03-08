@@ -12,13 +12,13 @@ library LibDiamond {
         uint16 selectorPosition;
     }
 
-    struct DiamondStorage {
+    struct Storage {
         // function selector => facet address and selector position in selectors array
         mapping(bytes4 => FacetAddressAndSelectorPosition) facetAddressAndSelectorPosition;
         bytes4[] selectors;
     }
 
-    function diamondStorage() internal pure returns (DiamondStorage storage ds) {
+    function getStorage() internal pure returns (Storage storage ds) {
         bytes32 position = Constants.DIAMOND_STORAGE_POSITION;
         assembly {
             ds.slot := position
@@ -48,7 +48,7 @@ library LibDiamond {
 
     function addFunctions(address _facetAddress, bytes4[] memory _functionSelectors) internal {
         require(_functionSelectors.length > 0, 'LibDiamondCut: No selectors in facet to cut');
-        DiamondStorage storage ds = diamondStorage();
+        Storage storage ds = getStorage();
         uint16 selectorCount = uint16(ds.selectors.length);
         require(_facetAddress != address(0), 'LibDiamondCut: Add facet cannot be address(0)');
         enforceHasContractCode(_facetAddress, 'LibDiamondCut: Add facet has no code');
@@ -64,7 +64,7 @@ library LibDiamond {
 
     function replaceFunctions(address _facetAddress, bytes4[] memory _functionSelectors) internal {
         require(_functionSelectors.length > 0, 'LibDiamondCut: No selectors in facet to cut');
-        DiamondStorage storage ds = diamondStorage();
+        Storage storage ds = getStorage();
         require(_facetAddress != address(0), 'LibDiamondCut: Replace facet cannot be address(0)');
         enforceHasContractCode(_facetAddress, 'LibDiamondCut: Replace facet has no code');
         for (uint256 selectorIndex; selectorIndex < _functionSelectors.length; selectorIndex++) {
@@ -83,7 +83,7 @@ library LibDiamond {
     function removeFunctions(address _facetAddress, bytes4[] memory _functionSelectors) internal {
        // require(_functionSelectors != diamondCutSelector , 'diamonCut function is immutable');
         require(_functionSelectors.length > 0, 'LibDiamondCut: No selectors in facet to cut');
-        DiamondStorage storage ds = diamondStorage();
+        Storage storage ds = getStorage();
         uint256 selectorCount = ds.selectors.length;
         require(_facetAddress == address(0), 'LibDiamondCut: Remove facet address must be address(0)');
         for (uint256 selectorIndex; selectorIndex < _functionSelectors.length; selectorIndex++) {

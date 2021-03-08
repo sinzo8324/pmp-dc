@@ -12,7 +12,7 @@ library LibAccessControl {
         bytes32 adminRole;
     }
 
-    struct AccessControlStorage {
+    struct Storage {
         mapping (bytes32 => RoleData) roles;
     }
 
@@ -45,7 +45,7 @@ library LibAccessControl {
     event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender);
 
 
-    function accessControlStorage() internal pure returns (AccessControlStorage storage fs) {
+    function getStorage() internal pure returns (Storage storage fs) {
         bytes32 position = Constants.ACCESSCONTROL_STORAGE_POSITION;
         assembly {
             fs.slot := position
@@ -53,7 +53,7 @@ library LibAccessControl {
     }
 
     function _hasRole(bytes32 role, address account) internal view returns (bool) {
-        AccessControlStorage storage fs = accessControlStorage();
+        Storage storage fs = getStorage();
         return fs.roles[role].members.contains(account);
     }
 
@@ -63,20 +63,20 @@ library LibAccessControl {
      * Emits a {RoleAdminChanged} event.
      */
     function _setRoleAdmin(bytes32 role, bytes32 adminRole) internal {
-        AccessControlStorage storage fs = accessControlStorage();
+        Storage storage fs = getStorage();
         emit RoleAdminChanged(role, fs.roles[role].adminRole, adminRole);
         fs.roles[role].adminRole = adminRole;
     }
 
     function _grantRole(bytes32 role, address account) internal {
-        AccessControlStorage storage fs = accessControlStorage();
+        Storage storage fs = getStorage();
         if (fs.roles[role].members.add(account)) {
             emit RoleGranted(role, account, msg.sender);
         }
     }
 
     function _revokeRole(bytes32 role, address account) internal {
-        AccessControlStorage storage fs = accessControlStorage();
+        Storage storage fs = getStorage();
         if (fs.roles[role].members.remove(account)) {
             emit RoleRevoked(role, account, msg.sender);
         }

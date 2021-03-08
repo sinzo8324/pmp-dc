@@ -20,7 +20,7 @@ contract Diamond {
     // Find facet for function that is called and execute the
     // function if a facet is found and return any value.
     fallback() external {
-        LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
+        LibDiamond.Storage storage ds = LibDiamond.getStorage();
         address facet = address(bytes20(ds.facetAddressAndSelectorPosition[msg.sig].facetAddress));
         require(facet != address(0), 'Diamond: Function does not exist');
         assembly {

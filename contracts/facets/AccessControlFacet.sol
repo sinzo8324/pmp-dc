@@ -21,7 +21,7 @@ contract AccessControlFacet {
      * together with {getRoleMember} to enumerate all bearers of a role.
      */
     function getRoleMemberCount(bytes32 role) public view returns (uint256) {
-        LibAccessControl.AccessControlStorage storage fs = LibAccessControl.accessControlStorage();
+        LibAccessControl.Storage storage fs = LibAccessControl.getStorage();
         return fs.roles[role].members.length();
     }
 
@@ -38,7 +38,7 @@ contract AccessControlFacet {
      * for more information.
      */
     function getRoleMember(bytes32 role, uint256 index) public view returns (address) {
-        LibAccessControl.AccessControlStorage storage fs = LibAccessControl.accessControlStorage();
+        LibAccessControl.Storage storage fs = LibAccessControl.getStorage();
         return fs.roles[role].members.at(index);
     }
 
@@ -49,7 +49,7 @@ contract AccessControlFacet {
      * To change a role's admin, use {_setRoleAdmin}.
      */
     function getRoleAdmin(bytes32 role) public view returns (bytes32) {
-        LibAccessControl.AccessControlStorage storage fs = LibAccessControl.accessControlStorage();
+        LibAccessControl.Storage storage fs = LibAccessControl.getStorage();
         return fs.roles[role].adminRole;
     }
 

@@ -3,8 +3,8 @@ pragma solidity ^0.7.6;
 
 import '../libraries/Constants.sol';
 
-library Erc20 {
-    struct Erc20Storage {
+library Erc20Storage {
+    struct Storage {
         uint256 totalSupply;
         string name;
         string symbol;
@@ -15,7 +15,7 @@ library Erc20 {
         string version;
     }
 
-    function erc20Storage() internal pure returns (Erc20Storage storage fs) {
+    function getStorage() internal pure returns (Storage storage fs) {
         bytes32 position = Constants.ERC20_STORAGE_POSITION;
         assembly {
             fs.slot := position

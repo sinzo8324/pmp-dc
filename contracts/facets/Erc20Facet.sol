@@ -4,8 +4,8 @@
 pragma solidity 0.7.6;
 
 import '../interfaces/IERC223Recipient.sol';
-import '../storages/Erc20.sol';
-import '../storages/Pausable.sol';
+import '../storages/Erc20Storage.sol';
+import '../storages/PausableStorage.sol';
 import '../libraries/Constants.sol';
 import '../libraries/LibAccessControl.sol';
 import 'openzeppelin-solidity/contracts/utils/Address.sol';
@@ -18,14 +18,14 @@ contract Erc20Facet is IERC20 {
 
     function setVersion(string calldata _version) external {
         require(_hasRole(Constants.TYPE_OPERATOR, msg.sender), 'Caller is not the Operator');
-        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        Erc20Storage.Storage storage fs = Erc20Storage.getStorage();
         fs.version = _version;
     }
 
     function updateTokenDetails(string calldata _name, string calldata  _symbol, uint8 _decimals) external {
         require(_hasRole(Constants.TYPE_OPERATOR, msg.sender), 'Caller is not the Operator');
 
-        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        Erc20Storage.Storage storage fs = Erc20Storage.getStorage();
 
         fs.symbol = _symbol;
         fs.name = _name;
@@ -36,7 +36,7 @@ contract Erc20Facet is IERC20 {
      * @dev Returns the name of the token.
      */
     function name() external view returns (string memory) {
-        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        Erc20Storage.Storage storage fs = Erc20Storage.getStorage();
         return fs.name;
     }
 
@@ -45,7 +45,7 @@ contract Erc20Facet is IERC20 {
      * name. 
      */
     function symbol() external view returns (string memory) {
-        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        Erc20Storage.Storage storage fs = Erc20Storage.getStorage();
         return fs.symbol;
     }
 
@@ -63,7 +63,7 @@ contract Erc20Facet is IERC20 {
      * {IERC20-balanceOf} and {IERC20-transfer}.
      */
     function decimals() external view returns (uint8) {
-        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        Erc20Storage.Storage storage fs = Erc20Storage.getStorage();
         return fs.decimals;
     }
 
@@ -71,7 +71,7 @@ contract Erc20Facet is IERC20 {
      * @dev See {IERC20-totalSupply}.
      */
     function totalSupply() public view override returns (uint256) {
-        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        Erc20Storage.Storage storage fs = Erc20Storage.getStorage();
         return fs.totalSupply;
     }
 
@@ -79,7 +79,7 @@ contract Erc20Facet is IERC20 {
      * @dev See {IERC20-balanceOf}.
      */
     function balanceOf(address account) public view override returns (uint256) {
-        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        Erc20Storage.Storage storage fs = Erc20Storage.getStorage();
         return fs.balances[account];
     }
 
@@ -100,7 +100,7 @@ contract Erc20Facet is IERC20 {
      * @dev See {IERC20-allowance}.
      */
     function allowance(address owner, address spender) public view override returns (uint256) {
-        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        Erc20Storage.Storage storage fs = Erc20Storage.getStorage();
         return fs.allowances[owner][spender];
     }
 
@@ -187,14 +187,13 @@ contract Erc20Facet is IERC20 {
 
     // EIP - 2612
     function nonces(address owner) external view returns (uint256) {
-        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        Erc20Storage.Storage storage fs = Erc20Storage.getStorage();
         return fs.nonces[owner];
     }
 
-    // Stack 사이즈 제한으로 인해 local variable의 개수를 최소화하였음.
     function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external {
         require(deadline >= block.timestamp, 'Erc20Facet: EXPIRED');
-        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        Erc20Storage.Storage storage fs = Erc20Storage.getStorage();
 
         bytes32 digest = keccak256(
             abi.encodePacked(
@@ -239,7 +238,7 @@ contract Erc20Facet is IERC20 {
         require(recipient != address(0), 'ERC20: transfer to the zero address');
 
         _beforeTokenTransfer(sender, recipient, amount);
-        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        Erc20Storage.Storage storage fs = Erc20Storage.getStorage();
         uint256 senderBalance = fs.balances[sender];
         uint256 recipientBalance = fs.balances[recipient];
         senderBalance = senderBalance.sub(amount, 'ERC20: transfer amount exceeds balance');
@@ -268,7 +267,7 @@ contract Erc20Facet is IERC20 {
         require(account != address(0), 'ERC20: mint to the zero address');
 
         _beforeTokenTransfer(address(0), account, amount);
-        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        Erc20Storage.Storage storage fs = Erc20Storage.getStorage();
         uint256 currentTotalSupply = fs.totalSupply;
         uint256 targetBalance = fs.balances[account];
 
@@ -301,7 +300,7 @@ contract Erc20Facet is IERC20 {
 
         _beforeTokenTransfer(account, address(0), amount);
 
-        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        Erc20Storage.Storage storage fs = Erc20Storage.getStorage();
         uint256 currentTotalSupply = fs.totalSupply;
         uint256 targetBalance = fs.balances[account];
 
@@ -331,7 +330,7 @@ contract Erc20Facet is IERC20 {
         require(owner != address(0), 'ERC20: approve from the zero address');
         require(spender != address(0), 'ERC20: approve to the zero address');
         
-        Erc20.Erc20Storage storage fs = Erc20.erc20Storage();
+        Erc20Storage.Storage storage fs = Erc20Storage.getStorage();
         fs.allowances[owner][spender] = amount;
         emit Approval(owner, spender, amount);
     }
@@ -351,7 +350,7 @@ contract Erc20Facet is IERC20 {
      * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
      */
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal view {
-        Pausable.PausableStorage storage fs = Pausable.pausableStorage();
+        PausableStorage.Storage storage fs = PausableStorage.getStorage();
         require(!fs.paused, 'Erc20Facet: token transfer while paused');
         from;
         to;
