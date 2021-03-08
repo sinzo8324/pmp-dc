@@ -7,10 +7,10 @@ import 'openzeppelin-solidity/contracts/access/Ownable.sol';
 import 'openzeppelin-solidity/contracts/token/ERC20/IERC20.sol';
 import './interfaces/IDCContract.sol';
 import './interfaces/IERC223Recipient.sol';
-import './libraries/RequestListLib.sol';
+import './libraries/LibRequestList.sol';
 
 contract DCVault is Ownable, IERC223Recipient {
-    using RequestListLib for RequestListLib.RequestIDList;
+    using LibRequestList for LibRequestList.RequestIDList;
 
     struct PendingReq {
         address source;
@@ -21,7 +21,7 @@ contract DCVault is Ownable, IERC223Recipient {
     uint256 requestCnt;
     uint256 public totalLocked;
     uint256 constant GUARDTIME = 1800;
-    RequestListLib.RequestIDList internal reqIDList;
+    LibRequestList.RequestIDList internal reqIDList;
     mapping (bytes32 => PendingReq) pendingList;
 
     event DCLocked(bytes32 indexed requestID, address indexed source, uint256 amount);

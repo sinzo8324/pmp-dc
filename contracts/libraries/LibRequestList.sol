@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.7.6;
 
-library RequestListLib {
+library LibRequestList {
     struct RequestIDList{
         mapping (bytes32 => bytes32) next;
         mapping (bytes32 => bytes32) previous;
