@@ -22,7 +22,7 @@ interface IDCContract is IDiamondCut, IDiamondLoupe {
     function renounceRole(bytes32 role, address account) external;
 
     //Erc20
-    function updateTokenDetails(string calldata _name, string calldata  _symbol, uint8 _decimals) external;
+    function updateTokenDetails(string calldata tokenName, string calldata tokenSymbol, uint8 tokenDecimals) external;
     function name() external view returns (string memory);
     function symbol() external view returns (string memory);
     function decimals() external view returns (uint8);

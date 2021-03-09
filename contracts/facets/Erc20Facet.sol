@@ -17,14 +17,14 @@ contract Erc20Facet is IERC20 {
     using SafeMath for uint256;
     using Address for address;
 
-    function updateTokenDetails(string calldata name, string calldata  symbol, uint8 decimals) external {
+    function updateTokenDetails(string calldata tokenName, string calldata tokenSymbol, uint8 tokenDecimals) external {
         require(_hasRole(Constants.TYPE_OPERATOR, msg.sender), 'Caller is not the Operator');
 
         Erc20Storage.Storage storage fs = Erc20Storage.getStorage();
 
-        fs.symbol = symbol;
-        fs.name = name;
-        fs.decimals = decimals;
+        fs.symbol = tokenSymbol;
+        fs.name = tokenName;
+        fs.decimals = tokenDecimals;
     }
 
     /**
