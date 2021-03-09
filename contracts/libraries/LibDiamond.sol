@@ -16,6 +16,7 @@ library LibDiamond {
         // function selector => facet address and selector position in selectors array
         mapping(bytes4 => FacetAddressAndSelectorPosition) facetAddressAndSelectorPosition;
         bytes4[] selectors;
+        string version;
     }
 
     function getStorage() internal pure returns (Storage storage ds) {
@@ -23,6 +24,10 @@ library LibDiamond {
         assembly {
             ds.slot := position
         }
+    }
+
+    function getVersion() internal view returns (string memory) {
+        return getStorage().version;
     }
 
     // Internal function version of diamondCut

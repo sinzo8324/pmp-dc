@@ -8,6 +8,9 @@ import './IDiamondCut.sol';
 import './IDiamondLoupe.sol';
 
 interface IDCContract is IDiamondCut, IDiamondLoupe {
+    function setVersion(string calldata version) external;
+    function getVersion() external view returns (string memory);
+
     //Access control
     function hasRole(bytes32 role, address account) external view returns (bool);
     function getRoleMemberCount(bytes32 role) external view returns (uint256);
@@ -19,7 +22,6 @@ interface IDCContract is IDiamondCut, IDiamondLoupe {
     function renounceRole(bytes32 role, address account) external;
 
     //Erc20
-    function setVersion(string calldata _version) external;
     function updateTokenDetails(string calldata _name, string calldata  _symbol, uint8 _decimals) external;
     function name() external view returns (string memory);
     function symbol() external view returns (string memory);

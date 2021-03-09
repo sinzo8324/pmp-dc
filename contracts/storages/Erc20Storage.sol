@@ -12,7 +12,6 @@ library Erc20Storage {
         mapping(address => uint256) balances;
         mapping(address => mapping (address => uint256)) allowances;
         mapping(address => uint256) nonces;
-        string version;
     }
 
     function getStorage() internal pure returns (Storage storage fs) {

@@ -29,6 +29,16 @@ contract DiamondCutFacet is IDiamondCut {
         emit DiamondCut(_diamondCut, _init, _calldata);
     }
 
+    function setVersion(string calldata version) external {
+        require(_hasRole(Constants.TYPE_OPERATOR, msg.sender), 'Caller is not the Operator');
+        LibDiamond.Storage storage fs = LibDiamond.getStorage();
+        fs.version = version;
+    }
+
+    function getVersion() external view returns (string memory) {
+        return LibDiamond.getVersion();
+    }
+
     function _hasRole(bytes32 role, address account) internal view returns (bool) {
         return LibAccessControl._hasRole(role, account);
     }

@@ -8,6 +8,7 @@ import '../storages/Erc20Storage.sol';
 import '../storages/PausableStorage.sol';
 import '../libraries/Constants.sol';
 import '../libraries/LibAccessControl.sol';
+import '../libraries/LibDiamond.sol';
 import 'openzeppelin-solidity/contracts/utils/Address.sol';
 import 'openzeppelin-solidity/contracts/token/ERC20/IERC20.sol';
 import 'openzeppelin-solidity/contracts/math/SafeMath.sol';
@@ -16,20 +17,14 @@ contract Erc20Facet is IERC20 {
     using SafeMath for uint256;
     using Address for address;
 
-    function setVersion(string calldata _version) external {
-        require(_hasRole(Constants.TYPE_OPERATOR, msg.sender), 'Caller is not the Operator');
-        Erc20Storage.Storage storage fs = Erc20Storage.getStorage();
-        fs.version = _version;
-    }
-
-    function updateTokenDetails(string calldata _name, string calldata  _symbol, uint8 _decimals) external {
+    function updateTokenDetails(string calldata name, string calldata  symbol, uint8 decimals) external {
         require(_hasRole(Constants.TYPE_OPERATOR, msg.sender), 'Caller is not the Operator');
 
         Erc20Storage.Storage storage fs = Erc20Storage.getStorage();
 
-        fs.symbol = _symbol;
-        fs.name = _name;
-        fs.decimals = _decimals;
+        fs.symbol = symbol;
+        fs.name = name;
+        fs.decimals = decimals;
     }
 
     /**
@@ -202,7 +197,7 @@ contract Erc20Facet is IERC20 {
                     abi.encode(
                         Constants.EIP712_DOMAIN,
                         keccak256(bytes(fs.name)),
-                        keccak256(bytes(fs.version)),
+                        keccak256(bytes(LibDiamond.getVersion())),
                         Constants.CHAINID,
                         address(this)
                     )
