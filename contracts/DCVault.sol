@@ -30,7 +30,7 @@ contract DCVault is Ownable, IERC223Recipient {
 
     address dcContractAddress;
 
-    function setDCContractAddress(address contractAddress) external onlyOwner {
+    function setDCContract(address contractAddress) external onlyOwner {
         dcContractAddress = contractAddress;
     }
 

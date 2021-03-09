@@ -12,7 +12,7 @@ DCVault
 
 ### 3. 구성하는 함수 목록
 * 특정 권한(owner) 계정만 호출 가능한 함수 목록
-    * setDCContractAddress(address contractAddress)
+    * setDCContract(address contractAddress)
         * 다루고자 하는 DC Contract 주소를 지정하기 위해 사용.
         * DCVault 배포 이후 초기값이 0이므로 꼭 세팅이 필요함.
     * lockUpDC(address source, uint256 amount)

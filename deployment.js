@@ -100,7 +100,7 @@ async function main() {
         await sendTransaction(web3, dcToken.methods.grantRole(TYPE_MINTER, dcVault._address), account.address);
         await sendTransaction(web3, dcToken.methods.grantRole(TYPE_BURNER, accountInfo.Burner), account.address);
         await sendTransaction(web3, dcToken.methods.grantRole(TYPE_BURNER, dcVault._address), account.address);
-        await sendTransaction(web3, dcVault.methods.setDCContractAddress(dcToken._address), account.address);
+        await sendTransaction(web3, dcVault.methods.setDCContract(dcToken._address), account.address);
         await sendTransaction(web3, dcLender.methods.setLoanLimit(LimitPerAccount), account.address);
         await sendTransaction(web3, dcLender.methods.setDCContract(dcToken._address), account.address);
         await sendTransaction(web3, dcWallet.methods.setDCContract(dcToken._address), account.address);

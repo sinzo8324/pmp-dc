@@ -113,16 +113,16 @@ contract('DCVault', accounts => {
         await this.erc20Token.addRoleType(TYPE_MINTER, { from: accounts[0] });
         await this.erc20Token.addRoleType(TYPE_BURNER, { from: accounts[0] });
 
-        await this.dcVault.setDCContractAddress(this.erc20Token.address, { from: accounts[0] });
+        await this.dcVault.setDCContract(this.erc20Token.address, { from: accounts[0] });
         await this.erc20Token.grantRole(TYPE_MINTER, accounts[0], { from: accounts[0] });
         await this.erc20Token.grantRole(TYPE_MINTER, this.dcVault.address, { from: accounts[0] });
         await this.erc20Token.grantRole(TYPE_BURNER, this.dcVault.address, { from: accounts[0] });
     });
 
-    describe('setDCContractAddress', async () => {
+    describe('setDCContract', async () => {
         it('Only the contract owner can use the function', async () => {
             await expectRevert(
-                this.dcVault.setDCContractAddress(constants.ZERO_ADDRESS, { from: accounts[1] }),
+                this.dcVault.setDCContract(constants.ZERO_ADDRESS, { from: accounts[1] }),
                 'Ownable: caller is not the owner'
             );
         });
